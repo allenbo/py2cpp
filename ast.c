@@ -1586,7 +1586,7 @@ ast_for_classdef_stmt(const node* n) {
     stmt_seq* body = NULL;
 
     if(NCH(n) == 7) {
-        super = ast_for_testlist(CHILD(n, 5));
+        super = ast_for_testlist(CHILD(n, 3));
         if(NULL == super) return NULL;
     }
     

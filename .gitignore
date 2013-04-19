@@ -4,3 +4,4 @@ Include
 *.pyc
 *.asdl
 tags
+main
