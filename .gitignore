@@ -1,0 +1,6 @@
+*.o
+Include
+*.py
+*.pyc
+*.asdl
+tags
