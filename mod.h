@@ -3,6 +3,8 @@
 
 #define NAME_MAX_SIZE 128
 
+typedef struct type* type_ty;
+
 typedef struct _stmt * stmt_ty;
 
 typedef struct _expr* expr_ty;
@@ -67,13 +69,11 @@ struct arguments {
 
 typedef struct FuncDef {
     char name[NAME_MAX_SIZE];
-    int  ret_type;  /* index to type table */
     arguments_ty args; 
     stmt_seq * body;
     
     int  is_class_member;
     enum Accessibility acc;
-    int  class_type; /* index to type table */
 }FuncDef;
 
 
@@ -397,6 +397,7 @@ struct _expr {
         List list;
         Tuple tuple;
     };
+    type_ty e_type;
     int lineno;
     int col_offset;
 };
