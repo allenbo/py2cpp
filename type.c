@@ -254,6 +254,8 @@ stmt_for_expr(expr_ty e) {
             expr_ty l = e->binop.left;
             expr_ty r = e->binop.right;
             char* oper = get_op_literal(e->binop.op);
+            stmt_for_expr(e->binop.left);
+            stmt_for_expr(e->binop.right);
             if(e->addr[0] != 0) {
                 printf("%s %s = %s %s %s;\n", e->e_type->name, e->addr,
                         l->addr, oper, r->addr);
