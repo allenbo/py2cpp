@@ -1,7 +1,17 @@
-#include "type.h"
 #include "symtab.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
-struct type t_unknown  = {UNKNOWD_KIND, 0};
+char* newTemp() {
+    static int i = 0;
+    char * tmp = (char* ) malloc( sizeof(char) * 10);
+    sprintf(tmp, "_t%d", i++);
+    return tmp;
+}
+
+
+struct type t_unknown  = {UNKNOWN_KIND, 0};
 struct type t_char = {CHAR_KIND, 1};
 struct type t_integer = {INTEGER_KIND, 4};
 struct type t_float = {FLOAT_KIND, 4};
@@ -46,22 +56,24 @@ assign_type_to_stmt(stmt_ty s) {
             break;
         case Assign_kind:
             {
-                int n_target = s->assign->n_target;
-                expr_ty * targets = s->assign->targets;
-                expr_ty value = s->assign->value;
-
-                insert_to_current_table(s->assign->targets[0]->name->id, 
-                        s->assign->value->e_type, SE_VARIABLE_KIND);
+                int n_target = s->assign.n_target;
+                expr_ty * targets = s->assign.targets;
+                expr_ty value = s->assign.value;
+                assign_type_to_expr(targets[0]);
+                assign_type_to_expr(value);
+                insert_to_current_table(targets[0]->name.id,
+                        value->e_type, SE_VARIABLE_KIND);
 
                 switch(value->e_type->kind) {
                     case INTEGER_KIND:
-                        printf("int %s = %d\n", targets[0]->name->id, value->num->ivalue);
+                        printf("int %s = %s;\n", targets[0]->addr, value->addr);
                         break;
                     case FLOAT_KIND:
-                        printf("float %s = %f\n", targets[0]->name->id, value->num->fvalue);
+                        printf("float %s = %s;\n", targets[0]->addr, value->addr);
                         break;
                     case LIST_KIND:
-                        printf("vector<%s> & x =
+                        printf("vector<%s> & %s= %s;\n", value->list.elts[0]->e_type == &t_integer?"int":"float",
+                                targets[0]->addr, value->addr);
                         break;
                 }
             }
@@ -111,7 +123,7 @@ assign_type_to_expr(expr_ty e) {
                 }else if( l->e_type->kind = STRING_KIND) {
                     e->e_type = &t_string;
                 }else {
-                    e->e_type = type_max(l->e_type, r->e_type);
+                    e->e_type = max_type(l->e_type, r->e_type);
                 }
             }
             break;
@@ -145,9 +157,11 @@ assign_type_to_expr(expr_ty e) {
             switch(e->num.kind) {
                 case INTEGER:
                     e->e_type = &t_integer;
+                    sprintf(e->addr, "%d", e->num.ivalue);
                     break;
                 case DECIMAL:
                     e->e_type = &t_float;
+                    sprintf(e->addr, "%f", e->num.fvalue);
                     break;
             }
             break;
@@ -159,15 +173,26 @@ assign_type_to_expr(expr_ty e) {
         case Subscript_kind:
             break;
         case Name_kind:
-            type_ty tp = search_type_for_name(e->id);
-            if(tp == NULL) {
-                e->e_type = &t_unknown;
-            }else {
-                e->e_type = tp;
+            {
+                type_ty tp = search_type_for_name(e->name.id);
+                if(tp == NULL) {
+                    e->e_type = &t_unknown;
+                }else {
+                    e->e_type = tp;
+                }
+                strcpy(e->addr, e->name.id);
             }
             break;
         case List_kind:
-            e->e_type = create_list_type(e->list.elems[0]->e_type);
+            assign_type_to_expr(e->list.elts[0]);
+            e->e_type = create_list_type(e->list.elts[0]->e_type);
+            strcpy(e->addr, newTemp());
+            printf("vector<%s> %s;\n", e->list.elts[0]->e_type == &t_integer?"int":"float", e->addr);
+            printf("%s.push_back(%s)\n", e->addr, e->list.elts[0]->addr);
+            for(i = 1; i < e->list.n_elt;  i ++ ) {
+                assign_type_to_expr(e->list.elts[i]);
+                printf("%s.push_back(%s)\n", e->addr, e->list.elts[i]->addr);
+            }
             break;
         case Tuple_kind:
             break;

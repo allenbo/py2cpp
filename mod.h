@@ -398,6 +398,7 @@ struct _expr {
         Tuple tuple;
     };
     type_ty e_type;
+    char addr[10];
     int lineno;
     int col_offset;
 };
