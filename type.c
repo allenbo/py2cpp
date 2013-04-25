@@ -43,6 +43,8 @@ type_compare(type_ty t1, type_ty t2) {
 
 static type_ty
 max_type(type_ty t1, type_ty t2) {
+    if(t1 != &t_integer && t1 != &t_float) return t1;
+    if(t2 != &t_integer && t2 != &t_float) return t2;
     if(t1 == t2) return t1;
     if(t1 == &t_float || t2 == &t_float) return &t_float;
 }
@@ -72,7 +74,7 @@ assign_type_to_stmt(stmt_ty s) {
                         value->e_type, SE_VARIABLE_KIND);
                     
                 eliminate_python_unique(value);
-                if(value->e_type->kind != LIST_KIND)
+                if(value->isplain)
                     stmt_for_expr(value);
                 
                 int i ;
@@ -136,6 +138,11 @@ assign_type_to_expr(expr_ty e) {
             assign_type_to_expr(e->binop.left);
             assign_type_to_expr(e->binop.right); 
             e->isplain = e->binop.left->isplain & e->binop.right->isplain; 
+           
+            if(e->binop.op == Mult && (e->binop.left->e_type->kind == STRING_KIND || e->binop.right->e_type->kind == STRING_KIND)) {
+                e->isplain = 0;
+            }
+
             if(e->binop.left->e_type->kind == LIST_KIND) {
                 e->e_type = e->binop.left->e_type;
             }
@@ -173,18 +180,15 @@ assign_type_to_expr(expr_ty e) {
             switch(e->num.kind) {
                 case INTEGER:
                     e->e_type = &t_integer;
-                    sprintf(e->addr, "%d", e->num.ivalue);
                     break;
                 case DECIMAL:
                     e->e_type = &t_float;
-                    sprintf(e->addr, "%f", e->num.fvalue);
                     break;
             }
             e->isplain = 1;
             break;
         case Str_kind:
             e->e_type = &t_string;
-            sprintf(e->addr, "\"%s\"", e->str.s);
             e->isplain = 1;
             break;
         case Attribute_kind:
@@ -248,6 +252,7 @@ char* get_op_literal(operator_ty op) {
 
 static void
 stmt_for_expr(expr_ty e) {
+    if(e->isplain == 0) return ;
     switch(e->kind) {
         case BinOp_kind:
         {
@@ -264,6 +269,32 @@ stmt_for_expr(expr_ty e) {
             }
         }
             break;
+        case Num_kind:
+            if(e->addr[0] != 0) {
+                printf("%s %s = ", e->e_type->name, e->addr);
+                if(e->num.kind == INTEGER)  {
+                    printf("%d;\n", e->num.ivalue);
+                }
+                else {
+                    printf("%f;\n", e->num.fvalue);
+                }
+            }
+            else {
+                if(e->num.kind == INTEGER) {
+                    sprintf(e->addr, "%d", e->num.ivalue);
+                }else {
+                    sprintf(e->addr, "%f", e->num.fvalue);
+                }
+            }
+            
+            break;
+        case Str_kind:
+            if(e->addr[0] != 0) {
+                printf("%s %s = \"%s\";\n", e->e_type->name, e->addr,  e->str.s);
+            }else {
+                sprintf(e->addr, "\"%s\"", e->str.s);
+            }
+            break;
     }
 }
 
@@ -271,19 +302,16 @@ stmt_for_expr(expr_ty e) {
 static void
 eliminate_python_unique(expr_ty e) {
     if(e->isplain) return ;
-    
-    if(e->addr[0] == 0)
-        strcpy(e->addr, newTemp());
-
     int i;
     switch(e->kind) {
         case BinOp_kind:
         {
+            if(e->addr[0] == 0)
+                strcpy(e->addr, newTemp());
             expr_ty l = e->binop.left;
             expr_ty r = e->binop.right;
             if(e->binop.left->e_type->kind == LIST_KIND) {
                 if(e->binop.op == Add) {
-
                     printf("%s %s;\n", e->e_type->name, e->addr);
                     eliminate_python_unique(e->binop.left);
                      
@@ -315,14 +343,50 @@ eliminate_python_unique(expr_ty e) {
                 printf("%s %s = pow(%s, %s);\n", e->e_type->name, e->addr,
                         l->addr, r->addr);
                 e->isplain = 1;
+            }else if(e->binop.op == Mult) {
+                if(l->e_type->kind == STRING_KIND || r->e_type->kind == STRING_KIND) {
+                    if(r->kind == Str_kind) {
+                        expr_ty t = l;
+                        l = r;
+                        r = t;
+                    }
+                        
+                    printf("%s %s;\n", "string", e->addr);
+                    char * iter = newIterator();
+                    if(r->isplain) {
+                        stmt_for_expr(r);
+                    }
+                    else {
+                        eliminate_python_unique(r);
+                    }
+                    printf("for(int %s = 0; %s < %s; %s ++ ) {\n", iter, iter, r->addr, iter);
+                    printf("\t%s += %s;\n", e->addr, l->addr);
+                    free(iter);
+                }
+            }else {
+                eliminate_python_unique(l);
+                eliminate_python_unique(r);
+                e->isplain = 1;
             }
         }
             break;
         case List_kind:
+            if(e->addr[0] == 0)
+                strcpy(e->addr, newTemp());
             printf("%s %s;\n", e->e_type->name, e->addr);
+            
+            int plain = e->list.elts[0]->isplain;
+            if(plain)
+                stmt_for_expr(e->list.elts[0]);
+            else 
+                eliminate_python_unique(e->list.elts[0]);
             printf("%s.push_back(%s)\n", e->addr, e->list.elts[0]->addr);
             for(i = 1; i < e->list.n_elt;  i ++ ) {
-                eliminate_python_unique(e->list.elts[i]);
+                plain = e->list.elts[i]->isplain;
+                if(plain)
+                    stmt_for_expr(e->list.elts[i]);
+                else 
+                    eliminate_python_unique(e->list.elts[i]);
                 printf("%s.push_back(%s)\n", e->addr, e->list.elts[i]->addr);
             } 
             printf("\n");
