@@ -26,14 +26,14 @@ struct symtab_entry {
 struct symtab {
     enum symtab_kind st_kind;
     int st_size;   /* the size of table entry */
-    int st_capability;  /* the whole slot in array */
+    int st_capacity;  /* the whole slot in array */
     symtab_entry_ty * st_symbols; 
    
     /* pointer to out scope*/
     symtab_ty st_parent;
     
     int n_child;
-    int child_capability;
+    int child_capacity;
     symtab_ty * st_children;
 };
 
@@ -43,6 +43,7 @@ struct symtab {
 struct  type{
     enum type_kind kind;
     int length;
+    char name[40];
     
     /*This is for arrary*/
     type_ty base;  /* <- also for pointer */

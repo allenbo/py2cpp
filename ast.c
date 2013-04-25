@@ -573,8 +573,7 @@ loop:
                     tmp = Binop_expr(left, op, right, LINENO(ch), ch->n_col_offset);
                     left = tmp;
                 }
-                if(NCH(ch) == 3) return tmp; 
-                return Binop_expr(left, op, right, LINENO(ch), ch->n_col_offset);
+                return tmp; 
             }
             break;
         case power:

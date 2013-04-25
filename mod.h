@@ -26,7 +26,7 @@ typedef enum _boolop { And = 1, Or = 2 } boolop_ty;
 typedef enum _expr_context { Load = 1, Store = 2, Del = 3, AugLoad = 4, AugStore = 5,
     Param = 6} expr_context_ty;
 
-typedef enum _operator { Add = 1, Sub = 1, Mult = 3, Div = 4, Mod = 5, Pow = 6, LShift =7,
+typedef enum _operator { Add = 1, Sub = 2, Mult = 3, Div = 4, Mod = 5, Pow = 6, LShift =7,
     RShift =8, BitOr = 9, BitXor = 10, BitAnd= 11, FloorDiv = 12} operator_ty;
 
 typedef enum _unaryop { Invert = 1, Not = 2, UAdd = 3, USub = 4 } unaryop_ty;

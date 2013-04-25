@@ -22,16 +22,16 @@ static symtab_ty
 create_symtab() {
     symtab_ty st  = (symtab_ty) malloc (sizeof(struct symtab));
     memset(st, 0, sizeof(struct symtab));
-    st->st_capability = 8;
-    st->st_symbols = (symtab_entry_ty*) malloc (sizeof(symtab_entry_ty) * st->st_capability);
+    st->st_capacity = 8;
+    st->st_symbols = (symtab_entry_ty*) malloc (sizeof(symtab_entry_ty) * st->st_capacity);
     return st;
 }
 
 
 static void
 expand_cur_table_for_entry() {
-    cur_table->st_capability += 8;
-    cur_table->st_symbols = (symtab_entry_ty*)realloc (cur_table->st_symbols, sizeof(symtab_entry_ty) * cur_table->st_capability);
+    cur_table->st_capacity += 8;
+    cur_table->st_symbols = (symtab_entry_ty*)realloc (cur_table->st_symbols, sizeof(symtab_entry_ty) * cur_table->st_capacity);
 }
 
 symtab_ty get_current_symtab() { return cur_table; }
@@ -59,7 +59,7 @@ search_type_for_name(char* name) {
 
 int
 insert_to_current_table(char* name, type_ty tp, enum symtab_entry_kind kind) {
-    if(cur_table->st_size == cur_table->st_capability) {
+    if(cur_table->st_size == cur_table->st_capacity) {
         expand_cur_table_for_entry();
     }
     cur_table->st_symbols[cur_table->st_size ++ ] = create_symtab_entry(name, tp, kind);
