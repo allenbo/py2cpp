@@ -6,9 +6,7 @@
 char* newTemp() {
     static int i = 0;
     char * tmp = (char* ) malloc( sizeof(char) * 10);
-    sprintf(tmp, "_t%d", i++);
-    return tmp;
-}
+    sprintf(tmp, "_t%d", i++); return tmp; }
 char* newIterator() {
     static int i = 0;
     char* tmp = (char*) malloc( sizeof(char) * 4);
@@ -26,7 +24,8 @@ static void assign_type_to_stmt(stmt_ty s);
 static void assign_type_to_expr(expr_ty e);
 static int type_compare(type_ty t1, type_ty t2);
 static type_ty max_type(type_ty t1, type_ty t2);
-
+static void stmt_for_expr(expr_ty e);
+static void eliminate_python_unique(expr_ty e);
 
 static type_ty 
 create_list_type(type_ty t) {
@@ -68,8 +67,16 @@ assign_type_to_stmt(stmt_ty s) {
                 expr_ty value = s->assign.value;
                 assign_type_to_expr(value);
 
+                strcpy(value->addr, targets[0]->name.id);
+                insert_to_current_table(targets[0]->name.id,
+                        value->e_type, SE_VARIABLE_KIND);
+                    
+                eliminate_python_unique(value);
+                if(value->e_type->kind != LIST_KIND)
+                    stmt_for_expr(value);
+                
                 int i ;
-                for(i= 0; i < n_target; i ++ ){
+                for(i= 1; i < n_target; i ++ ){
                     assign_type_to_expr(targets[i]);
                     insert_to_current_table(targets[i]->name.id,
                             value->e_type, SE_VARIABLE_KIND);
@@ -128,61 +135,12 @@ assign_type_to_expr(expr_ty e) {
         case BinOp_kind:
             assign_type_to_expr(e->binop.left);
             assign_type_to_expr(e->binop.right); 
-            { 
-                expr_ty l = e->binop.left;
-                expr_ty r = e->binop.right;
-
-                strcpy(e->addr, newTemp());
-                if(l->e_type->kind == LIST_KIND) {
-                    e->e_type = create_list_type(l->e_type->base);
-                    /* there are only two operation that list supports
-                     * add and multiple */
-                    if(e->binop.op == Add) {
-                        printf("%s %s;\n", e->e_type->name, e->addr);
-                        char* iter = newIterator();
-                        printf("for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, l->addr, iter);
-                        printf("\t%s.push_back(%s[%s]);\n", e->addr, l->addr, iter);
-                        printf("for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, r->addr, iter);
-                        printf("\t%s.push_back(%s[%s]);\n", e->addr, r->addr, iter);
-                        free(iter);
-                    }
-                    else if(e->binop.op == Mult) {
-                        printf("%s %s;\n", e->e_type->name, e->addr);
-                        char* iter = newIterator();
-                        printf("for( int %s = 1; %s < %s; %s ++ )\n", iter, iter, r->addr, iter);
-                        printf("\t%s.push_back(%s[%s]);\n", e->addr, l->addr, iter);
-                        free(iter);
-                    }else {
-                        /*should never go to the branch */
-                        fprintf(stderr, "List Error\n");
-                        exit(-1);
-                    }
-                }else if( l->e_type->kind == STRING_KIND ) {
-                    e->e_type = &t_string;
-                }else {
-                    e->e_type = max_type(l->e_type, r->e_type);
-                }
-                    
-                if(e->binop.op == Pow) {
-                    printf("%s %s = pow(%s, %s);\n", e->e_type->name, e->addr,
-                            l->addr, r->addr);
-                }
-                else if(l->e_type->kind != LIST_KIND) {
-                    printf("%s %s = %s ", e->e_type->name, e->addr, l->addr);
-                    switch(e->binop.op) {
-                        case Add: printf("+");break;
-                        case Sub: printf("-");break;
-                        case Mult: printf("*");break;
-                        case Div: printf("/");break;
-                        case Mod: printf("\%");break;
-                        case LShift: printf(">>");break;
-                        case RShift: printf(">>");break;
-                        case BitOr: printf("|");break;
-                        case BitXor: printf("^");break;
-                        case BitAnd: printf("&");break;
-                    }
-                    printf(" %s;\n", r->addr);
-                }
+            e->isplain = e->binop.left->isplain & e->binop.right->isplain; 
+            if(e->binop.left->e_type->kind == LIST_KIND) {
+                e->e_type = e->binop.left->e_type;
+            }
+            else {
+                e->e_type = max_type(e->binop.left->e_type, e->binop.right->e_type);
             }
             break;
         case UnaryOp_kind:
@@ -222,10 +180,12 @@ assign_type_to_expr(expr_ty e) {
                     sprintf(e->addr, "%f", e->num.fvalue);
                     break;
             }
+            e->isplain = 1;
             break;
         case Str_kind:
             e->e_type = &t_string;
             sprintf(e->addr, "\"%s\"", e->str.s);
+            e->isplain = 1;
             break;
         case Attribute_kind:
             break;
@@ -240,17 +200,19 @@ assign_type_to_expr(expr_ty e) {
                     e->e_type = tp;
                 }
                 strcpy(e->addr, e->name.id);
+                if(e->e_type->kind == LIST_KIND ) {
+                    e->isplain = 0;
+                }else {
+                    e->isplain = 1;
+                }
             }
             break;
         case List_kind:
             assign_type_to_expr(e->list.elts[0]);
             e->e_type = create_list_type(e->list.elts[0]->e_type);
-            strcpy(e->addr, newTemp());
-            printf("%s %s;\n", e->e_type->name, e->addr);
-            printf("%s.push_back(%s)\n", e->addr, e->list.elts[0]->addr);
-            for(i = 1; i < e->list.n_elt;  i ++ ) {
+            e->isplain = 0;
+            for(i = 0; i < e->list.n_elt; i ++ ) {
                 assign_type_to_expr(e->list.elts[i]);
-                printf("%s.push_back(%s)\n", e->addr, e->list.elts[i]->addr);
             }
             break;
         case Tuple_kind:
@@ -264,5 +226,104 @@ assign_type_to_ast(stmt_seq* ss) {
     int i = 0;
     for(; i < ss->size; i ++ ) {
         assign_type_to_stmt(ss->seqs[i]);
+    }
+}
+
+
+char* get_op_literal(operator_ty op) {
+    switch(op) {
+        case Add: return "+";
+        case Sub: return "-";
+        case Mult: return "*";
+        case Div:  return "/";
+        case Mod:  return "\%";
+        case LShift: return "<<";
+        case RShift: return ">>";
+        case BitOr:  return "|";
+        case BitXor:return "^";
+        case BitAnd:  return "&";
+    }    
+}
+
+
+static void
+stmt_for_expr(expr_ty e) {
+    switch(e->kind) {
+        case BinOp_kind:
+        {
+            expr_ty l = e->binop.left;
+            expr_ty r = e->binop.right;
+            char* oper = get_op_literal(e->binop.op);
+            if(e->addr[0] != 0) {
+                printf("%s %s = %s %s %s;\n", e->e_type->name, e->addr,
+                        l->addr, oper, r->addr);
+            }else {
+                sprintf(e->addr, "(%s %s %s)", l->addr, oper, r->addr);
+            }
+        }
+            break;
+    }
+}
+
+
+static void
+eliminate_python_unique(expr_ty e) {
+    if(e->isplain) return ;
+    
+    if(e->addr[0] == 0)
+        strcpy(e->addr, newTemp());
+
+    int i;
+    switch(e->kind) {
+        case BinOp_kind:
+        {
+            expr_ty l = e->binop.left;
+            expr_ty r = e->binop.right;
+            if(e->binop.left->e_type->kind == LIST_KIND) {
+                if(e->binop.op == Add) {
+
+                    printf("%s %s;\n", e->e_type->name, e->addr);
+                    eliminate_python_unique(e->binop.left);
+                     
+                    char* iter = newIterator();
+                    printf("for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, l->addr, iter);
+                    printf("\t%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter);
+
+                    eliminate_python_unique(e->binop.right);
+                    
+                    printf("for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, r->addr, iter);
+                    printf("\t%s.push_back(%s[%s]);\n", e->addr, r->addr, iter);
+                    free(iter);
+                }
+                else if(e->binop.op == Mult) {
+                    printf("%s %s;\n", e->e_type->name, e->addr);
+                    char* iter = newIterator();
+                    char* iter1 = newIterator();
+                    printf("for( int %s = 1; %s < %s; %s ++ )\n", iter, iter, r->addr, iter);
+                    printf("\tfor( int %s = 1; %s < %s.size(); %s ++ )\n", iter1, l->addr, r->addr, iter1);
+                    printf("\t\t%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter1);
+                    free(iter);
+                    free(iter1);
+                }else {
+                    fprintf(stderr, "List Error\n");
+                    exit(-1);
+                }
+            }
+            else if(e->binop.op == Pow) {
+                printf("%s %s = pow(%s, %s);\n", e->e_type->name, e->addr,
+                        l->addr, r->addr);
+                e->isplain = 1;
+            }
+        }
+            break;
+        case List_kind:
+            printf("%s %s;\n", e->e_type->name, e->addr);
+            printf("%s.push_back(%s)\n", e->addr, e->list.elts[0]->addr);
+            for(i = 1; i < e->list.n_elt;  i ++ ) {
+                eliminate_python_unique(e->list.elts[i]);
+                printf("%s.push_back(%s)\n", e->addr, e->list.elts[i]->addr);
+            } 
+            printf("\n");
+            break;
     }
 }

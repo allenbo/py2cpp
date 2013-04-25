@@ -59,6 +59,11 @@ search_type_for_name(char* name) {
 
 int
 insert_to_current_table(char* name, type_ty tp, enum symtab_entry_kind kind) {
+    if(global_table == NULL) {
+        global_table = create_symtab();
+        cur_table = global_table;
+    }
+
     if(cur_table->st_size == cur_table->st_capacity) {
         expand_cur_table_for_entry();
     }

@@ -17,6 +17,7 @@ typedef struct symtab * symtab_ty;
 struct symtab_entry {
     int se_offset;
     char se_name[128];
+    char c_name[128];
     enum symtab_entry_kind se_kind;    
     type_ty se_type;
 };

@@ -399,6 +399,7 @@ struct _expr {
     };
     type_ty e_type;
     char addr[10];
+    int isplain;
     int lineno;
     int col_offset;
 };

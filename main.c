@@ -18,7 +18,10 @@ int main() {
     int flag = 0;
     node *n = PyParser_ParseFileFlagsEx(fp, filename, &_PyParser_Grammar, Py_file_input, NULL, NULL, &err_ret, &flag);
     stmt_seq* ss = ast_from_node(n);
+    
+    printf("#include <iostream>\n#include <vector>\nusing namespace std;\n\n\nint main(int argc, char** argv) {\n");
     assign_type_to_ast(ss);
+    printf("return 0;\n}");
     PyNode_Free(n);
     fclose(fp);
     return 0;

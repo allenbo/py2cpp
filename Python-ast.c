@@ -34,6 +34,7 @@ expr_new() {
         fprintf(stderr, "Memory Error\n");
         exit(-1);
     }
+    memset(e, 0, sizeof(struct _expr));
     return e;
 }
 
