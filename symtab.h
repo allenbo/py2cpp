@@ -6,8 +6,8 @@
 enum symtab_entry_kind { SE_UNKNOWN_KIND, SE_VARIABLE_KIND, SE_CONSTANT_KIND , SE_GLOBAL_KIND, SE_DEFAULT_KIND};
 enum symtab_kind {SK_FILE_KIND, SK_FUNCTION_KIND };
 
-enum type_kind { CHAR_KIND, SHORT_KIND, INTEGER_KIND, ARRAY_KIND, STRUCT_KIND, POINTER_KIND, FLOAT_KIND,
-    DOUBLE_KIND, FUNCTION_KIND };
+enum type_kind { CHAR_KIND, INTEGER_KIND, FLOAT_KIND, STRING_KIND, LIST_KIND, POINTER_KIND,
+    FUNCTION_KIND };
 
 
 typedef struct symtab_entry * symtab_entry_ty;
@@ -62,10 +62,8 @@ struct  type{
 void assign_type_to_ast(stmt_seq* ss);
 
 
-//symtab_ty create_symtab(enum symtab_kind kind);
 
-
-//int insert_to_current_table(char *name, type_ty t, enum symtab_entry_kind kind);
-
+int insert_to_current_table(char *name, type_ty t, enum symtab_entry_kind kind);
+type_ty search_type_for_name(char* name);
 
 #endif

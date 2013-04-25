@@ -1,13 +1,35 @@
 #include "type.h"
 #include "symtab.h"
 
+struct type t_unknown  = {UNKNOWD_KIND, 0};
+struct type t_char = {CHAR_KIND, 1};
 struct type t_integer = {INTEGER_KIND, 4};
 struct type t_float = {FLOAT_KIND, 4};
-
-
+struct type t_string = {POINTER_KIND, 4,  &t_char};
 
 static void assign_type_to_stmt(stmt_ty s);
 static void assign_type_to_expr(expr_ty e);
+static int type_compare(type_ty t1, type_ty t2);
+static type_ty max_type(type_ty t1, type_ty t2);
+
+static type_ty 
+create_list_type(type_ty t) {
+    type_ty tp = (type_ty) malloc ( sizeof(struct type) );
+    tp->kind = LIST_KIND;
+    tp->base = t;
+    return tp;
+}
+
+
+static int
+type_compare(type_ty t1, type_ty t2) {
+}
+
+static type_ty
+max_type(type_ty t1, type_ty t2) {
+    if(t1 == t2) return t1;
+    if(t1 == &t_float || t2 == &t_float) return &t_float;
+}
 
 
 static void
@@ -15,77 +37,6 @@ assign_type_to_stmt(stmt_ty s) {
     int i;
     switch(s->kind) {
         case FuncDef_kind:
-/*            char funcname[128] = {0};
-            strcpy(funcname, s->funcdef.name);
-
-            arguments_ty args = s->fundef->args;
-            for(i = 0; i < n_param; i ++ ) {
-                expr_ty e = args->params[i]->value;
-                assign_type_to_expr(e);
-                switch(e->e_type->kind) {
-                    case CAHR_KIND:
-                        strcat(funcname, "_c"); break;
-                    case SHORT_KIND:
-                        strcat(funcname, "_s"); break;
-                    case INTEGER_KIND:
-                        strcat(funcname, "_i"); break;
-                    case FLOAT_KIND:
-                        strcat(funcname, "_f"); break;
-                    case DOUBLE_KIND:
-                        strcat(funcname, "_d"); break;
-                    case ARRAY_KIND:
-                        strcat(funcname, "_a"); break;
-                    case STRUCT_KIND:
-                        strcat(funcname, "_t"); break;
-                    case POINTER_KIND:
-                        strcat(funcname, "_p"); break;
-                    case FUNCTION_KIND:
-                        strcat(funcname, "_n"); break;
-                }
-            }
-
-            for(i = 0; i < n_default; i ++ ) {
-                expr_ty e = args->default_params[i]->value;
-                assign_type_to_expr(e);
-                switch(e->e_type->kind) {
-                    case CAHR_KIND:
-                        strcat(funcname, "_c"); break;
-                    case SHORT_KIND:
-                        strcat(funcname, "_s"); break;
-                    case INTEGER_KIND:
-                        strcat(funcname, "_i"); break;
-                    case FLOAT_KIND:
-                        strcat(funcname, "_f"); break;
-                    case DOUBLE_KIND:
-                        strcat(funcname, "_d"); break;
-                    case ARRAY_KIND:
-                        strcat(funcname, "_a"); break;
-                    case STRUCT_KIND:
-                        strcat(funcname, "_t"); break;
-                    case POINTER_KIND:
-                        strcat(funcname, "_p"); break;
-                    case FUNCTION_KIND:
-                        strcat(funcname, "_n"); break; }
-            }
-            
-            insert_func_to_current_table(funcname);
-            for(i = 0; i < n_default_params; i ++ ) {
-                expr_ty e = args->default_params[i]->value;
-                char name[128] = {0};
-                sprintf(name, "%s_%s", name, funcname);
-                insert_to_current_table(name, e->e_type, VARIABLE_KIND);
-            }
-            enter_new_scope_func(s->funcdef);
-            for(i = 0; i < n_default_params; i ++ ) {
-                expr_ty e = args->default_params[i]->value;
-                char name[128] = {0};
-                sprintf(name, "%s_%s", name, funcname);
-                insert_to_current_table(name, e->e_type, VARIABLE_KIND);
-            }
-        
-            assign_type_to_ast(s->funcdef->body);
-            exit_scope(); 
-*/
             break;
         case ClassDef_kind:
             break;
@@ -94,6 +45,26 @@ assign_type_to_stmt(stmt_ty s) {
         case Delete_kind:
             break;
         case Assign_kind:
+            {
+                int n_target = s->assign->n_target;
+                expr_ty * targets = s->assign->targets;
+                expr_ty value = s->assign->value;
+
+                insert_to_current_table(s->assign->targets[0]->name->id, 
+                        s->assign->value->e_type, SE_VARIABLE_KIND);
+
+                switch(value->e_type->kind) {
+                    case INTEGER_KIND:
+                        printf("int %s = %d\n", targets[0]->name->id, value->num->ivalue);
+                        break;
+                    case FLOAT_KIND:
+                        printf("float %s = %f\n", targets[0]->name->id, value->num->fvalue);
+                        break;
+                    case LIST_KIND:
+                        printf("vector<%s> & x =
+                        break;
+                }
+            }
             break;
         case AugAssign_kind:
             break;
@@ -131,6 +102,18 @@ assign_type_to_expr(expr_ty e) {
         case BinOp_kind:
             assign_type_to_expr(e->binop.left);
             assign_type_to_expr(e->binop.right); 
+            { 
+                expr_ty l = e->binop.left;
+                expr_ty r = e->binop.right;
+
+                if(l->e_type->kind == LIST_KIND) {
+                    e->e_type = create_list_type(l->list.elts[0]->e_type);
+                }else if( l->e_type->kind = STRING_KIND) {
+                    e->e_type = &t_string;
+                }else {
+                    e->e_type = type_max(l->e_type, r->e_type);
+                }
+            }
             break;
         case UnaryOp_kind:
             break;
@@ -169,14 +152,22 @@ assign_type_to_expr(expr_ty e) {
             }
             break;
         case Str_kind:
+            e->e_type = &t_string;
             break;
         case Attribute_kind:
             break;
         case Subscript_kind:
             break;
         case Name_kind:
+            type_ty tp = search_type_for_name(e->id);
+            if(tp == NULL) {
+                e->e_type = &t_unknown;
+            }else {
+                e->e_type = tp;
+            }
             break;
         case List_kind:
+            e->e_type = create_list_type(e->list.elems[0]->e_type);
             break;
         case Tuple_kind:
             break;
