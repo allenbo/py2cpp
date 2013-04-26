@@ -190,6 +190,10 @@ assign_type_to_expr(expr_ty e) {
         case Yield_kind:
             break;
         case Compare_kind:
+            assign_type_to_expr(e->compare.left);
+            for(i = 0; i< e->compare.n_comparator; i ++ ) {
+                assign_type_to_expr(e->compare.comparators[i]);
+            }
             break;
         case Call_kind:
             break;
@@ -223,11 +227,12 @@ assign_type_to_expr(expr_ty e) {
                     e->e_type = tp;
                 }
                 strcpy(e->addr, e->name.id);
+                /*
                 if(e->e_type->kind == LIST_KIND ) {
                     e->isplain = 0;
                 }else {
                     e->isplain = 1;
-                }
+                }*/
             }
             break;
         case List_kind:
@@ -311,8 +316,8 @@ stmt_for_expr(expr_ty e) {
             char* oper = get_op_literal(e->binop.op);
             stmt_for_expr(e->binop.left);
             stmt_for_expr(e->binop.right);
-            indent_output();
             if(e->addr[0] != 0) {
+                indent_output();
                 printf("%s %s = %s %s %s;\n", e->e_type->name, e->addr,
                         l->addr, oper, r->addr);
             }else {
@@ -387,15 +392,26 @@ eliminate_python_unique(expr_ty e) {
                     free(iter);
                 }
                 else if(e->binop.op == Mult) {
+                    if(r->e_type->kind == LIST_KIND) {
+                        expr_ty t = r; r = l; l = t;
+                    }
+                    if(r->isplain)
+                        stmt_for_expr(r);
+                    else 
+                        eliminate_python_unique(r);
+                    if(l->isplain)
+                        stmt_for_expr(l);
+                    else 
+                        eliminate_python_unique(l);
                     indent_output();
                     printf("%s %s;\n", e->e_type->name, e->addr);
                     char* iter = newIterator();
                     char* iter1 = newIterator();
                     indent_output();
-                    printf("for( int %s = 1; %s < %s; %s ++ )\n", iter, iter, r->addr, iter);
+                    printf("for( int %s = 0; %s < %s; %s ++ )\n", iter, iter, r->addr, iter);
                     level ++;
                     indent_output();
-                    printf("for( int %s = 1; %s < %s.size(); %s ++ )\n", iter1, l->addr, r->addr, iter1);
+                    printf("for( int %s = 0; %s < %s.size(); %s ++ )\n", iter1, iter1, l->addr, iter1);
                     level ++;
                     indent_output();
                     printf("%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter1);
@@ -483,8 +499,12 @@ eliminate_python_unique(expr_ty e) {
             {
                 indent_output();
                 printf("%s %s;\n", e->e_type->name, e->addr);
-                for(i = 0; i < e->listcomp.n_com; i ++ )                 
+                for(i = 0; i < e->listcomp.n_com; i ++ )  {
                     eliminate_python_unique(e->listcomp.generators[i]->iter);
+                    int j;
+                    for(j = 0; j < e->listcomp.generators[i]->n_test; j ++ )
+                        eliminate_python_unique(e->listcomp.generators[i]->tests[j]);
+                }
                 int oldlevel = level;
                 for(i = 0; i < e->listcomp.n_com; i ++ ) {
                     indent_output();
