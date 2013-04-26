@@ -140,11 +140,13 @@ label_list_for:
     n_fors ++;
     if( NCH(n) == 4) return n_fors;
     n = CHILD(n, 4);
+    n = CHILD(n, 0);
 
     if(TYPE(n) == list_for) goto label_list_for;
 label_list_if:
     if(NCH(n) == 2) return n_fors;
     n = CHILD(n, 2);
+    n = CHILD(n, 0);
     if(TYPE(n) == list_for) goto label_list_for;
     else goto label_list_if;
 }

@@ -3,11 +3,11 @@
 
 #include "mod.h"
 
-enum symtab_entry_kind { SE_UNKNOWN_KIND, SE_VARIABLE_KIND, SE_CONSTANT_KIND , SE_GLOBAL_KIND, SE_DEFAULT_KIND};
+enum symtab_entry_kind { SE_UNKNOWN_KIND, SE_VARIABLE_KIND, SE_CONSTANT_KIND , SE_GLOBAL_KIND, SE_DEFAULT_KIND, SE_TEMP};
 enum symtab_kind {SK_FILE_KIND, SK_FUNCTION_KIND };
 
-enum type_kind { UNKNOWN_KIND, CHAR_KIND, INTEGER_KIND, FLOAT_KIND, STRING_KIND, LIST_KIND, POINTER_KIND,
-    FUNCTION_KIND };
+enum type_kind { UNKNOWN_KIND, CHAR_KIND, INTEGER_KIND, FLOAT_KIND, STRING_KIND, LIST_KIND, DICT_KIND, POINTER_KIND,
+    TUPLE_KIND, FUNCTION_KIND };
 
 
 typedef struct symtab_entry * symtab_entry_ty;
@@ -49,7 +49,9 @@ struct  type{
     /*This is for arrary*/
     type_ty base;  /* <- also for pointer */
     int size;
-
+    
+    type_ty kbase;
+    type_ty vbase;
     /*This is for struct */
     symtab_ty fields;
 

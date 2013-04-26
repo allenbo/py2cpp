@@ -22,6 +22,8 @@ struct type t_string = {STRING_KIND, 0,  "string"};
 
 static void assign_type_to_stmt(stmt_ty s);
 static void assign_type_to_expr(expr_ty e);
+static void assign_type_to_comprehension(comprehension_ty com);
+static void push_type_to_expr(expr_ty e);
 static int type_compare(type_ty t1, type_ty t2);
 static type_ty max_type(type_ty t1, type_ty t2);
 static void stmt_for_expr(expr_ty e);
@@ -163,6 +165,12 @@ assign_type_to_expr(expr_ty e) {
         case Set_kind:
             break;
         case ListComp_kind:
+            e->isplain = 0;
+            for(i = 0; i < e->listcomp.n_com; i ++ ) {
+                assign_type_to_comprehension(e->listcomp.generators[i]);
+            }
+            assign_type_to_expr(e->listcomp.elt);
+            e->e_type = create_list_type(e->listcomp.elt->e_type);
             break;
         case SetComp_kind:
             break;
@@ -225,6 +233,37 @@ assign_type_to_expr(expr_ty e) {
             break;
     }
 }
+
+static void
+assign_type_to_comprehension(comprehension_ty com) {
+    expr_ty iter = com->iter;
+    expr_ty target = com->target;
+
+    assign_type_to_expr(iter);
+    
+    if(iter->e_type->kind = LIST_KIND) {
+        target->e_type = iter->e_type->base;    
+    }else if(iter->e_type->kind ==DICT_KIND) {
+        target->e_type = iter->e_type->kbase;
+    }
+
+    push_type_to_expr(target);
+}
+
+
+static void
+push_type_to_expr(expr_ty e) {
+    if(e->kind == Tuple_kind) {
+        if(e->e_type->kind == TUPLE_KIND) {
+            
+        }
+    }
+    else if(e->kind == Name_kind) {
+        insert_to_current_table(e->name.id, e->e_type, SE_TEMP);
+        strcpy(e->addr, e->name.id);
+    }
+}
+
 
 
 void
@@ -404,6 +443,19 @@ eliminate_python_unique(expr_ty e) {
                 printf("%s.push_back(%s);\n", e->addr, e->list.elts[i]->addr);
             } 
             printf("\n");
+            break;
+        case ListComp_kind:
+            {
+                printf("%s %s;\n", e->e_type->name, e->addr);
+                for(i = 0; i < e->listcomp.n_com; i ++ )                 
+                    eliminate_python_unique(e->listcomp.generators[i]->iter);
+                for(i = 0; i < e->listcomp.n_com; i ++ ) {
+                    printf("for(%s %s: %s)\n", e->listcomp.elt->e_type->name, e->listcomp.generators[i]->target->addr,
+                            e->listcomp.generators[i]->iter->addr);
+                }
+                printf("\t%s.push_back(%s);\n", e->addr, e->listcomp.elt->addr);
+                
+            }
             break;
     }
 }
