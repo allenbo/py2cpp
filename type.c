@@ -60,7 +60,6 @@ max_type(type_ty t1, type_ty t2) {
     if(t1 == &t_float || t2 == &t_float) return &t_float;
 }
 
-
 static void
 assign_type_to_stmt(stmt_ty s) {
     int i;
@@ -78,8 +77,7 @@ assign_type_to_stmt(stmt_ty s) {
                 int n_target = s->assign.n_target;
                 expr_ty * targets = s->assign.targets;
                 expr_ty value = s->assign.value;
-                assign_type_to_expr(value);
-
+                assign_type_to_expr(value); 
                 strcpy(value->addr, targets[0]->name.id);
                 insert_to_current_table(targets[0]->name.id,
                         value->e_type, SE_VARIABLE_KIND);
@@ -589,25 +587,39 @@ eliminate_python_unique(expr_ty e) {
             else
                 eliminate_python_unique(e->compare.left);
             if(e->addr[0] != 0) {
-                indent_output();
-                printf("%s %s = ", e->e_type->name, e->addr);
-                for(i = 0; i< e->compare.n_comparator; i ++ ) {
+                for(i = 0; i < e->compare.n_comparator; i ++ ) {
                     if(e->compare.comparators[i]->isplain)
                         stmt_for_expr(e->compare.comparators[i]);
                     else
                         eliminate_python_unique(e->compare.comparators[i]);
+                }
+                indent_output();
+                printf("%s %s = ", e->e_type->name, e->addr);
+                for(i = 0; i< e->compare.n_comparator; i ++ ) {
+                    char* prev = NULL;
+                    char* p = NULL;
                     if(i == 0) {
-                            printf("%s", e->compare.left->addr);
+                        prev = e->compare.left->addr;
                     }else {
-                            printf("%s", e->compare.comparators[i-1]->addr);
+                        prev = e->compare.comparators[i-1]->addr;
                     }
-                    printf(" %s %s", get_cmp_literal(e->compare.ops[i]), e->compare.comparators[i]->addr);
+                    p = e->compare.comparators[i]->addr;
+                    switch(e->compare.ops[i]) {
+                        case NotIn:
+                            printf("find(%s.begin(), %s.end(), %s) == %s.end()", p, p, prev, p);
+                            break;
+                        case In:
+                            printf("find(%s.begin(), %s.end(), %s) != %s.end()", p, p, prev, p);
+                            break;
+                        default: 
+                            printf("%s", prev);
+                            printf(" %s %s", get_cmp_literal(e->compare.ops[i]), p);
+                    }
                     if(i != e->compare.n_comparator -1 ) {
                         printf(" && ");
                     }
                 }
                 printf(";\n");
-
             }
             else {
                 for(i = 0; i< e->compare.n_comparator; i ++ ) {
