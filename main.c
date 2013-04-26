@@ -21,7 +21,7 @@ int main() {
     printf("#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main(int argc, char** argv) {\n");
     assign_type_to_ast(ss);
     printf("\treturn 0;\n}");
-    PyNode_Free(n);
+    //PyNode_Free(n);
     fclose(fp);
     return 0;
 }

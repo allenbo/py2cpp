@@ -24,6 +24,7 @@ void indent_output() {
 
 struct type t_unknown  = {UNKNOWN_KIND, 0};
 struct type t_char = {CHAR_KIND, 1, "char"};
+struct type t_boolean = {BOOLEAN_KIND, 1, "bool"};
 struct type t_integer = {INTEGER_KIND, 4, "int"};
 struct type t_float = {FLOAT_KIND, 4, "float"};
 struct type t_string = {STRING_KIND, 0,  "string"};
@@ -134,6 +135,12 @@ assign_type_to_stmt(stmt_ty s) {
             break;
         case Expr_kind:
             assign_type_to_expr(s->exprstmt.value);
+            if(s->exprstmt.value->isplain) {
+                stmt_for_expr(s->exprstmt.value);
+            }
+            else {
+                eliminate_python_unique(s->exprstmt.value);
+            }
             break;
     }
 }
@@ -193,6 +200,19 @@ assign_type_to_expr(expr_ty e) {
             assign_type_to_expr(e->compare.left);
             for(i = 0; i< e->compare.n_comparator; i ++ ) {
                 assign_type_to_expr(e->compare.comparators[i]);
+                switch(e->compare.ops[i]) {
+                    case Is: 
+                    case IsNot:
+                    case In:
+                    case NotIn:
+                        e->isplain = 0;break;
+                    default:
+                        e->isplain = 1;break;
+                }
+            }
+            e->e_type = &t_boolean;
+            if(e->compare.n_comparator != 1) {
+                e->isplain = 0;
             }
             break;
         case Call_kind:
@@ -227,6 +247,7 @@ assign_type_to_expr(expr_ty e) {
                     e->e_type = tp;
                 }
                 strcpy(e->addr, e->name.id);
+                e->isplain = 1;
                 /*
                 if(e->e_type->kind == LIST_KIND ) {
                     e->isplain = 0;
@@ -253,6 +274,10 @@ assign_type_to_comprehension(comprehension_ty com) {
     expr_ty iter = com->iter;
     expr_ty target = com->target;
 
+    int i;
+    for(i = 0; i < com->n_test; i ++ ) {
+        assign_type_to_expr(com->tests[i]);
+    }
     assign_type_to_expr(iter);
     
     if(iter->e_type->kind = LIST_KIND) {
@@ -305,6 +330,17 @@ char* get_op_literal(operator_ty op) {
 }
 
 
+char* get_cmp_literal(compop_ty op) {
+    switch(op) {
+        case Eq: return "==";
+        case NotEq: return "!=";
+        case Lt: return "<";
+        case LtE: return "<=";
+        case Gt: return ">";
+        case GtE: return ">=";
+    }
+}
+
 static void
 stmt_for_expr(expr_ty e) {
     if(e->isplain == 0) return ;
@@ -351,6 +387,18 @@ stmt_for_expr(expr_ty e) {
                 printf("%s %s = \"%s\";\n", e->e_type->name, e->addr,  e->str.s);
             }else {
                 sprintf(e->addr, "\"%s\"", e->str.s);
+            }
+            break;
+        case Compare_kind:
+            stmt_for_expr(e->compare.left);
+            stmt_for_expr(e->compare.comparators[0]);
+            if(e->addr[0] != 0 ) {
+                indent_output();
+                printf("%s %s = %s %s %s;\n", e->e_type->name, e->addr,
+                        e->compare.left->addr,get_cmp_literal(e->compare.ops[0]), e->compare.comparators[0]->addr);
+            }else {
+                sprintf(e->addr, "%s %s %s",
+                        e->compare.left->addr,get_cmp_literal(e->compare.ops[0]), e->compare.comparators[0]->addr);
             }
             break;
     }
@@ -502,8 +550,13 @@ eliminate_python_unique(expr_ty e) {
                 for(i = 0; i < e->listcomp.n_com; i ++ )  {
                     eliminate_python_unique(e->listcomp.generators[i]->iter);
                     int j;
-                    for(j = 0; j < e->listcomp.generators[i]->n_test; j ++ )
-                        eliminate_python_unique(e->listcomp.generators[i]->tests[j]);
+                    for(j = 0; j < e->listcomp.generators[i]->n_test; j ++ ) {
+                        expr_ty t = e->listcomp.generators[i]->tests[j];
+                        if(t->isplain)
+                            stmt_for_expr(t);
+                        else
+                            eliminate_python_unique(t);
+                    }
                 }
                 int oldlevel = level;
                 for(i = 0; i < e->listcomp.n_com; i ++ ) {
@@ -511,11 +564,68 @@ eliminate_python_unique(expr_ty e) {
                     printf("for(%s %s: %s)\n", e->listcomp.elt->e_type->name, e->listcomp.generators[i]->target->addr,
                             e->listcomp.generators[i]->iter->addr);
                     level ++;
+                    if(e->listcomp.generators[i]->n_test) {
+                        indent_output();
+                        printf("if( ");
+                        int j;
+                        for(j = 0; j < e->listcomp.generators[i]->n_test; j ++ ) {
+                            printf("%s", e->listcomp.generators[i]->tests[j]->addr);
+                            if(j != e->listcomp.generators[i]->n_test - 1)
+                                printf(" && ");
+                        }
+                        printf(" )\n");
+                        level ++;
+                    }
                 }
                 indent_output();
                 printf("%s.push_back(%s);\n", e->addr, e->listcomp.elt->addr);
                 level = oldlevel;
                 
+            }
+            break;
+        case Compare_kind:
+            if(e->compare.left->isplain) 
+                stmt_for_expr(e->compare.left);
+            else
+                eliminate_python_unique(e->compare.left);
+            if(e->addr[0] != 0) {
+                indent_output();
+                printf("%s %s = ", e->e_type->name, e->addr);
+                for(i = 0; i< e->compare.n_comparator; i ++ ) {
+                    if(e->compare.comparators[i]->isplain)
+                        stmt_for_expr(e->compare.comparators[i]);
+                    else
+                        eliminate_python_unique(e->compare.comparators[i]);
+                    if(i == 0) {
+                            printf("%s", e->compare.left->addr);
+                    }else {
+                            printf("%s", e->compare.comparators[i-1]->addr);
+                    }
+                    printf(" %s %s", get_cmp_literal(e->compare.ops[i]), e->compare.comparators[i]->addr);
+                    if(i != e->compare.n_comparator -1 ) {
+                        printf(" && ");
+                    }
+                }
+                printf(";\n");
+
+            }
+            else {
+                for(i = 0; i< e->compare.n_comparator; i ++ ) {
+                    if(e->compare.comparators[i]->isplain)
+                        stmt_for_expr(e->compare.comparators[i]);
+                    else
+                        eliminate_python_unique(e->compare.comparators[i]);
+                    if(i == 0) {
+                            strcat(e->addr, e->compare.left->addr);
+                    }else {
+                            strcat(e->addr, e->compare.comparators[i-1]->addr);
+                    }
+                    sprintf(e->addr + strlen(e->addr), " %s %s", get_cmp_literal(e->compare.ops[i]), 
+                            e->compare.comparators[i]->addr);
+                    if(i != e->compare.n_comparator -1 ) {
+                        strcat(e->addr, " && ");
+                    }
+                }
             }
             break;
     }
