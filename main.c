@@ -20,7 +20,7 @@ int main() {
     stmt_seq* ss = ast_from_node(n);
     printf("#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main(int argc, char** argv) {\n");
     assign_type_to_ast(ss);
-    printf("return 0;\n}");
+    printf("\treturn 0;\n}");
     PyNode_Free(n);
     fclose(fp);
     return 0;

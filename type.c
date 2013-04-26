@@ -14,6 +14,14 @@ char* newIterator() {
     return tmp;
 }
 
+int level = 1;
+void indent_output() {
+    int i ;
+    for(i= 0 ; i < level; i ++ ) {
+        printf("\t");
+    }
+}
+
 struct type t_unknown  = {UNKNOWN_KIND, 0};
 struct type t_char = {CHAR_KIND, 1, "char"};
 struct type t_integer = {INTEGER_KIND, 4, "int"};
@@ -85,6 +93,7 @@ assign_type_to_stmt(stmt_ty s) {
                     insert_to_current_table(targets[i]->name.id,
                             value->e_type, SE_VARIABLE_KIND);
             
+                    indent_output();
                     switch(value->e_type->kind) {
                         case INTEGER_KIND:
                             printf("int %s = %s;\n", targets[i]->addr, value->addr);
@@ -302,6 +311,7 @@ stmt_for_expr(expr_ty e) {
             char* oper = get_op_literal(e->binop.op);
             stmt_for_expr(e->binop.left);
             stmt_for_expr(e->binop.right);
+            indent_output();
             if(e->addr[0] != 0) {
                 printf("%s %s = %s %s %s;\n", e->e_type->name, e->addr,
                         l->addr, oper, r->addr);
@@ -312,6 +322,7 @@ stmt_for_expr(expr_ty e) {
             break;
         case Num_kind:
             if(e->addr[0] != 0) {
+                indent_output();
                 printf("%s %s = ", e->e_type->name, e->addr);
                 if(e->num.kind == INTEGER)  {
                     printf("%d;\n", e->num.ivalue);
@@ -331,6 +342,7 @@ stmt_for_expr(expr_ty e) {
             break;
         case Str_kind:
             if(e->addr[0] != 0) {
+                indent_output();
                 printf("%s %s = \"%s\";\n", e->e_type->name, e->addr,  e->str.s);
             }else {
                 sprintf(e->addr, "\"%s\"", e->str.s);
@@ -353,26 +365,41 @@ eliminate_python_unique(expr_ty e) {
             expr_ty r = e->binop.right;
             if(e->binop.left->e_type->kind == LIST_KIND) {
                 if(e->binop.op == Add) {
+                    indent_output();
                     printf("%s %s;\n", e->e_type->name, e->addr);
                     eliminate_python_unique(e->binop.left);
                      
                     char* iter = newIterator();
+                    indent_output();
                     printf("for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, l->addr, iter);
-                    printf("\t%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter);
-
+                    level ++;
+                    indent_output();
+                    printf("%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter);
+                    level --;
                     eliminate_python_unique(e->binop.right);
                     
+                    indent_output();
                     printf("for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, r->addr, iter);
-                    printf("\t%s.push_back(%s[%s]);\n", e->addr, r->addr, iter);
+                    level ++;
+                    indent_output();
+                    printf("%s.push_back(%s[%s]);\n", e->addr, r->addr, iter);
+                    level --;
                     free(iter);
                 }
                 else if(e->binop.op == Mult) {
+                    indent_output();
                     printf("%s %s;\n", e->e_type->name, e->addr);
                     char* iter = newIterator();
                     char* iter1 = newIterator();
+                    indent_output();
                     printf("for( int %s = 1; %s < %s; %s ++ )\n", iter, iter, r->addr, iter);
-                    printf("\tfor( int %s = 1; %s < %s.size(); %s ++ )\n", iter1, l->addr, r->addr, iter1);
-                    printf("\t\t%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter1);
+                    level ++;
+                    indent_output();
+                    printf("for( int %s = 1; %s < %s.size(); %s ++ )\n", iter1, l->addr, r->addr, iter1);
+                    level ++;
+                    indent_output();
+                    printf("%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter1);
+                    level -= 2;
                     free(iter);
                     free(iter1);
                 }else {
@@ -393,6 +420,7 @@ eliminate_python_unique(expr_ty e) {
                 else {
                     eliminate_python_unique(r);
                 }
+                indent_output();
                 printf("%s %s = pow(%s, %s);\n", e->e_type->name, e->addr,
                         l->addr, r->addr);
                 //e->isplain = 1;
@@ -403,7 +431,7 @@ eliminate_python_unique(expr_ty e) {
                         l = r;
                         r = t;
                     }
-                        
+                    indent_output();    
                     printf("%s %s;\n", "string", e->addr);
                     char * iter = newIterator();
                     if(r->isplain) {
@@ -412,8 +440,12 @@ eliminate_python_unique(expr_ty e) {
                     else {
                         eliminate_python_unique(r);
                     }
+                    indent_output();    
                     printf("for(int %s = 0; %s < %s; %s ++ ) {\n", iter, iter, r->addr, iter);
-                    printf("\t%s += %s;\n", e->addr, l->addr);
+                    level ++;
+                    indent_output();    
+                    printf("%s += %s;\n", e->addr, l->addr);
+                    level --;
                     free(iter);
                 }
             }else {
@@ -426,6 +458,7 @@ eliminate_python_unique(expr_ty e) {
         case List_kind:
             if(e->addr[0] == 0)
                 strcpy(e->addr, newTemp());
+            indent_output();
             printf("%s %s;\n", e->e_type->name, e->addr);
             
             int plain = e->list.elts[0]->isplain;
@@ -433,6 +466,7 @@ eliminate_python_unique(expr_ty e) {
                 stmt_for_expr(e->list.elts[0]);
             else 
                 eliminate_python_unique(e->list.elts[0]);
+            indent_output();
             printf("%s.push_back(%s);\n", e->addr, e->list.elts[0]->addr);
             for(i = 1; i < e->list.n_elt;  i ++ ) {
                 plain = e->list.elts[i]->isplain;
@@ -440,20 +474,27 @@ eliminate_python_unique(expr_ty e) {
                     stmt_for_expr(e->list.elts[i]);
                 else 
                     eliminate_python_unique(e->list.elts[i]);
+                indent_output();
                 printf("%s.push_back(%s);\n", e->addr, e->list.elts[i]->addr);
             } 
             printf("\n");
             break;
         case ListComp_kind:
             {
+                indent_output();
                 printf("%s %s;\n", e->e_type->name, e->addr);
                 for(i = 0; i < e->listcomp.n_com; i ++ )                 
                     eliminate_python_unique(e->listcomp.generators[i]->iter);
+                int oldlevel = level;
                 for(i = 0; i < e->listcomp.n_com; i ++ ) {
+                    indent_output();
                     printf("for(%s %s: %s)\n", e->listcomp.elt->e_type->name, e->listcomp.generators[i]->target->addr,
                             e->listcomp.generators[i]->iter->addr);
+                    level ++;
                 }
-                printf("\t%s.push_back(%s);\n", e->addr, e->listcomp.elt->addr);
+                indent_output();
+                printf("%s.push_back(%s);\n", e->addr, e->listcomp.elt->addr);
+                level = oldlevel;
                 
             }
             break;
