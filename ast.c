@@ -655,8 +655,7 @@ ast_for_atom(const node * n) {
                 n = CHILD(n, 1);
                 if(TYPE(n) == yield_expr) {
                     return ast_for_expr(n); 
-                }
-                else if( TYPE(CHILD(n, 1)) == COMMA) {
+                }else if (NCH(n) == 1 || TYPE(CHILD(n, 1)) == COMMA) {
                     return ast_for_testlist(n);
                 }
                 else {

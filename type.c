@@ -142,7 +142,9 @@ assign_type_to_expr(expr_ty e) {
             if(e->binop.op == Mult && (e->binop.left->e_type->kind == STRING_KIND || e->binop.right->e_type->kind == STRING_KIND)) {
                 e->isplain = 0;
             }
-
+            if(e->binop.op == Pow) {
+                e->isplain = 0;
+            }
             if(e->binop.left->e_type->kind == LIST_KIND) {
                 e->e_type = e->binop.left->e_type;
             }
@@ -340,9 +342,21 @@ eliminate_python_unique(expr_ty e) {
                 }
             }
             else if(e->binop.op == Pow) {
+                if(l->isplain) {
+                    stmt_for_expr(l);
+                }
+                else {
+                    eliminate_python_unique(l);
+                }
+                if(r->isplain) {
+                    stmt_for_expr(r);
+                }
+                else {
+                    eliminate_python_unique(r);
+                }
                 printf("%s %s = pow(%s, %s);\n", e->e_type->name, e->addr,
                         l->addr, r->addr);
-                e->isplain = 1;
+                //e->isplain = 1;
             }else if(e->binop.op == Mult) {
                 if(l->e_type->kind == STRING_KIND || r->e_type->kind == STRING_KIND) {
                     if(r->kind == Str_kind) {
@@ -380,14 +394,14 @@ eliminate_python_unique(expr_ty e) {
                 stmt_for_expr(e->list.elts[0]);
             else 
                 eliminate_python_unique(e->list.elts[0]);
-            printf("%s.push_back(%s)\n", e->addr, e->list.elts[0]->addr);
+            printf("%s.push_back(%s);\n", e->addr, e->list.elts[0]->addr);
             for(i = 1; i < e->list.n_elt;  i ++ ) {
                 plain = e->list.elts[i]->isplain;
                 if(plain)
                     stmt_for_expr(e->list.elts[i]);
                 else 
                     eliminate_python_unique(e->list.elts[i]);
-                printf("%s.push_back(%s)\n", e->addr, e->list.elts[i]->addr);
+                printf("%s.push_back(%s);\n", e->addr, e->list.elts[i]->addr);
             } 
             printf("\n");
             break;
