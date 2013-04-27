@@ -95,13 +95,10 @@ assign_type_to_stmt(stmt_ty s) {
                     indent_output();
                     switch(value->e_type->kind) {
                         case INTEGER_KIND:
-                            printf("int %s = %s;\n", targets[i]->addr, value->addr);
-                            break;
                         case FLOAT_KIND:
-                            printf("float %s = %s;\n", targets[i]->addr, value->addr);
-                            break;
                         case STRING_KIND:
-                            printf("string %s = %s;\n", targets[i]->addr, value->addr);
+                        case BOOLEAN_KIND:
+                            printf("%s %s = %s;\n", value->e_type->name, targets[i]->addr, value->addr);
                             break;
                         case LIST_KIND:
                             printf("%s & %s = %s;\n", value->e_type->name, 
@@ -114,6 +111,16 @@ assign_type_to_stmt(stmt_ty s) {
         case AugAssign_kind:
             break;
         case Print_kind:
+            {
+                int i ;
+                for(i = 0; i < s->print.n_value; i ++ ) {
+                    assign_type_to_expr(s->print.values[i]);
+                }
+                char* dest = NULL;
+                if(s->print.dest!= NULL) {
+                    char*        
+                }
+            }
             break;
         case For_kind:
             break;
