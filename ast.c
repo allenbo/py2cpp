@@ -1047,7 +1047,7 @@ ast_for_print_stmt(const node* n) {
     const node* ch = n;
     expr_ty dest = NULL;
     int n_value = NCH(ch) / 2; 
-    int newline_mark = 0;
+    int newline_mark = 1;
     
     int i = 1;
     int j = 0;
@@ -1068,7 +1068,7 @@ ast_for_print_stmt(const node* n) {
     }
 
     if( TYPE(CHILD(ch, NCH(ch) - 1)) == COMMA)
-        newline_mark = 1;
+        newline_mark = 0;
     
     return Print_stmt(dest, n_value, values, newline_mark, LINENO(ch), ch->n_col_offset);
 }

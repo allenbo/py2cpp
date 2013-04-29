@@ -18,7 +18,9 @@ int main() {
     int flag = 0;
     node *n = PyParser_ParseFileFlagsEx(fp, filename, &_PyParser_Grammar, Py_file_input, NULL, NULL, &err_ret, &flag);
     stmt_seq* ss = ast_from_node(n);
-    printf("#include <iostream>\n#include <vector>\n#include <algorithm>\nusing namespace std;\n\nint main(int argc, char** argv) {\n");
+    printf("#include <iostream>\n#include <vector>\n#include <algorithm>\nusing namespace std;\n\n");
+    printf("template <class T, ostream& out>\nvoid output(T x) { out<< x << \", \";}\n\n");
+    printf("int main(int argc, char** argv) {\n");
     assign_type_to_ast(ss);
     printf("\treturn 0;\n}");
     //PyNode_Free(n);
