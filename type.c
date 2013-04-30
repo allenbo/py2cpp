@@ -91,6 +91,7 @@ assign_type_to_stmt(stmt_ty s) {
             indent_output();
             fprintf(output, "return %s;\n", s->ret.value->addr);
             func_ret = s->ret.value->e_type;
+            strcpy(s->ret.value->addr, "");
             break;
         case Delete_kind:
             break;
