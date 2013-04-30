@@ -6,17 +6,29 @@
 
 static symtab_ty global_table = NULL;
 static symtab_ty cur_table = NULL;
+static symtab_ty func_table = NULL;
+
+static symtab_entry_ty
+create_incomplete_func_symtab_entry(char* name, stmt_ty s, symtab_ty t) {
+    symtab_entry_ty se = (symtab_entry_ty) malloc( sizeof(struct symtab_entry));
+    memset(se, 0, sizeof(struct symtab_entry));
+    strcpy(se->se_name, name);
+    se->se_node  = s;
+    se->se_table = t;
+    return se;
+}
 
 
 static symtab_entry_ty
-create_symtab_entry(char* name, type_ty tp, enum symtab_entry_kind kind) {
+create_symtab_entry(char* name, type_ty tp, enum symtab_entry_kind kind, symtab_ty t) {
     symtab_entry_ty se = (symtab_entry_ty) malloc (sizeof(struct symtab_entry));
     memset(se, 0, sizeof(struct symtab_entry));
     strcpy(se->se_name, name);
     se->se_type = tp;
     se->se_kind = kind;
+    se->se_table = t;
+    return se;
 }
-
 
 static symtab_ty 
 create_symtab() {
@@ -38,7 +50,6 @@ symtab_ty get_current_symtab() { return cur_table; }
 symtab_ty get_global_table() { return global_table; }
 
 
-
 type_ty
 search_type_for_name(char* name) {
     if(global_table == NULL) {
@@ -48,11 +59,32 @@ search_type_for_name(char* name) {
     }
 
     int i;
-    for(i = cur_table->st_size - 1 ; i >= 0 ; -- i) {
-        symtab_entry_ty se = cur_table->st_symbols[i];
-        if(strcmp(se->se_name, name) == 0) {
-            return se->se_type;
+    symtab_ty st = cur_table;
+    while(st) {
+        for(i = st->st_size - 1 ; i >= 0 ; -- i) {
+            symtab_entry_ty se = st->st_symbols[i];
+            if(strcmp(se->se_name, name) == 0) {
+                return se->se_type;
+            }
         }
+        st = st->st_parent;
+    }
+    return NULL;
+}
+
+stmt_ty
+search_stmt_for_name(char* name) {
+    int i;
+    symtab_ty st = cur_table;
+    while(st) {
+        for(i = st->st_size - 1 ; i >= 0 ; -- i) {
+            symtab_entry_ty se = st->st_symbols[i];
+            if(strcmp(se->se_name, name) == 0) {
+                func_table = se->se_table;
+                return se->se_node;
+            }
+        }
+        st = st->st_parent;
     }
     return NULL;
 }
@@ -67,6 +99,46 @@ insert_to_current_table(char* name, type_ty tp, enum symtab_entry_kind kind) {
     if(cur_table->st_size == cur_table->st_capacity) {
         expand_cur_table_for_entry();
     }
-    cur_table->st_symbols[cur_table->st_size ++ ] = create_symtab_entry(name, tp, kind);
+    cur_table->st_symbols[cur_table->st_size ++ ] = create_symtab_entry(name, tp, kind, cur_table);
     return 1;
+}
+
+
+
+int
+insert_incomplete_func_to_table(char* name, stmt_ty node) {
+    if(global_table == NULL) {
+        global_table = create_symtab();
+        cur_table = global_table;
+    }
+
+    if(cur_table->st_size == cur_table->st_capacity) {
+        expand_cur_table_for_entry();
+    }
+    cur_table->st_symbols[cur_table->st_size ++ ] = create_incomplete_func_symtab_entry(name, node, cur_table);
+    return 1;
+}
+
+
+
+void
+enter_new_scope_for_func() {
+    if(0 == func_table->child_capacity ) {
+        func_table->child_capacity = 8;
+        func_table->st_children = (symtab_ty*) malloc( func_table->child_capacity * sizeof(symtab_ty));
+    }
+    if(func_table->child_capacity == func_table->n_child) {
+        func_table->child_capacity += 8;
+        func_table->st_children = (symtab_ty*) realloc (func_table->st_children,
+                sizeof(symtab_ty) * func_table->child_capacity) ;
+    }
+    func_table->st_children[func_table->n_child ++ ] = create_symtab();
+    symtab_ty tmp = cur_table;
+    cur_table = func_table->st_children[func_table->n_child - 1];
+    func_table = tmp;
+}
+
+void
+exit_scope_from_func() {
+    cur_table = func_table;
 }

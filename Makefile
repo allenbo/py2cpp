@@ -7,4 +7,4 @@ main:$(OBJ)
 	gcc -c $< -g
 
 clean:
-	m -rf *.o main
+	rm -rf *.o main

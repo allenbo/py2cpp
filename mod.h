@@ -74,6 +74,7 @@ typedef struct FuncDef {
     
     int  is_class_member;
     enum Accessibility acc;
+    char fullname[NAME_MAX_SIZE];
 }FuncDef;
 
 
@@ -350,6 +351,7 @@ typedef struct {
     Parameter* args;
     expr_ty varg;
     expr_ty karg;
+    char fullname[NAME_MAX_SIZE];
 }Call;
 
 

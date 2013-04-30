@@ -15,14 +15,12 @@ char* newIterator() {
 }
 
 int level = 1;
-void indent_output() {
-    int i ;
-    for(i= 0 ; i < level; i ++ ) {
-        printf("\t");
-    }
-}
+int outfile = 0;
 
-struct type t_unknown  = {UNKNOWN_KIND, 0};
+static type_ty func_ret = NULL;
+extern FILE* fdef;
+
+struct type t_unknown  = {UNKNOWN_KIND, 0 , "void"};
 struct type t_char = {CHAR_KIND, 1, "char"};
 struct type t_boolean = {BOOLEAN_KIND, 1, "bool"};
 struct type t_integer = {INTEGER_KIND, 4, "int"};
@@ -33,11 +31,25 @@ static void assign_type_to_stmt(stmt_ty s);
 static void assign_type_to_expr(expr_ty e);
 static void assign_type_to_comprehension(comprehension_ty com);
 static void push_type_to_expr(expr_ty e);
+static void push_type_to_arguments(stmt_ty st, expr_ty s);
 static int type_compare(type_ty t1, type_ty t2);
 static type_ty max_type(type_ty t1, type_ty t2);
 static void stmt_for_expr(expr_ty e);
 static void eliminate_python_unique_for_expr(expr_ty e);
 static void eliminate_python_unique_for_stmt(stmt_ty s);
+
+
+void indent_output() {
+    int i ;
+    
+    for(i= 0 ; i < level; i ++ ) {
+        if(outfile == 1)
+            fprintf(fdef, "\t");
+        else
+            printf("\t");
+    }
+}
+
 
 static type_ty
 create_list_type(type_ty t) {
@@ -66,10 +78,19 @@ assign_type_to_stmt(stmt_ty s) {
     int i;
     switch(s->kind) {
         case FuncDef_kind:
+            insert_incomplete_func_to_table(s->funcdef.name,s);
             break;
         case ClassDef_kind:
             break;
         case Return_kind:
+            assign_type_to_expr(s->ret.value);
+            if(s->ret.value->isplain)
+                stmt_for_expr(s->ret.value);
+            else
+                eliminate_python_unique_for_expr(s->ret.value);
+            indent_output();
+            fprintf(fdef, "return %s;\n", s->ret.value->addr);
+            func_ret = s->ret.value->e_type;
             break;
         case Delete_kind:
             break;
@@ -217,6 +238,7 @@ assign_type_to_expr(expr_ty e) {
                 e->isplain = 0;
             }
             if(e->binop.left->e_type->kind == LIST_KIND) {
+                e->isplain = 0;
                 e->e_type = e->binop.left->e_type;
             }
             else {
@@ -269,6 +291,47 @@ assign_type_to_expr(expr_ty e) {
             }
             break;
         case Call_kind:
+            {
+                char fullname[50] = "";
+                strcpy(fullname, e->call.func->name.id);
+                int i;
+                for(i = 0; i < e->call.n_arg; i ++ ) {
+                    assign_type_to_expr(e->call.args[i].args);
+                    eliminate_python_unique_for_expr(e->call.args[i].args);
+                    switch(e->call.args[i].args->e_type->kind) {
+                        case BOOLEAN_KIND:
+                            strcat(fullname, "_b");break;
+                        case CHAR_KIND:
+                            strcat(fullname, "_c");break;
+                        case INTEGER_KIND:
+                            strcat(fullname, "_i");break;
+                        case FLOAT_KIND:
+                            strcat(fullname, "_f");break;
+                        case STRING_KIND:
+                            strcat(fullname, "_s");break;
+                        case LIST_KIND:
+                            strcat(fullname, "_l");break;
+                        default:
+                            break;
+                    }
+                }
+
+                type_ty tp = search_type_for_name(fullname);
+                if(tp == NULL) {
+                    stmt_ty st = search_stmt_for_name(e->call.func->name.id);
+                    insert_to_current_table(fullname, &t_unknown, SE_FUNCTION_KIND);
+                    strcpy(st->funcdef.fullname, fullname);
+                    strcpy(e->call.fullname, fullname);
+                    push_type_to_arguments(st, e);
+                    eliminate_python_unique_for_stmt(st);
+                    e->e_type = func_ret;
+                    func_ret = NULL;
+                }
+                else {
+                    e->e_type = tp;
+                }
+                e->isplain = 1;
+            }
             break;
         case Repr_kind:
             break;
@@ -301,12 +364,6 @@ assign_type_to_expr(expr_ty e) {
                 }
                 strcpy(e->addr, e->name.id);
                 e->isplain = 1;
-                /*
-                if(e->e_type->kind == LIST_KIND ) {
-                    e->isplain = 0;
-                }else {
-                    e->isplain = 1;
-                }*/
             }
             break;
         case List_kind:
@@ -353,6 +410,14 @@ push_type_to_expr(expr_ty e) {
     else if(e->kind == Name_kind) {
         insert_to_current_table(e->name.id, e->e_type, SE_TEMP);
         strcpy(e->addr, e->name.id);
+    }
+}
+
+static void
+push_type_to_arguments(stmt_ty st, expr_ty e) {
+    int i;
+    for(i = 0; i < e->call.n_arg; i ++ ) {
+        st->funcdef.args->params[i]->args->e_type = e->call.args[i].args->e_type;
     }
 }
 
@@ -408,8 +473,7 @@ stmt_for_expr(expr_ty e) {
             if(e->addr[0] != 0) {
                 indent_output();
                 printf("%s %s = %s %s %s;\n", e->e_type->name, e->addr,
-                        l->addr, oper, r->addr);
-            }else {
+                        l->addr, oper, r->addr); }else {
                 sprintf(e->addr, "(%s %s %s)", l->addr, oper, r->addr);
             }
         }
@@ -452,6 +516,29 @@ stmt_for_expr(expr_ty e) {
             }else {
                 sprintf(e->addr, "%s %s %s",
                         e->compare.left->addr,get_cmp_literal(e->compare.ops[0]), e->compare.comparators[0]->addr);
+            }
+            break;
+        case Call_kind:
+            if(e->addr[0] != 0) {
+                indent_output();
+                printf("%s %s = %s(", e->e_type->name,  e->addr, e->call.fullname);
+                int i ;
+                for(i = 0; i < e->call.n_arg; i ++ ) {
+                    stmt_for_expr(e->call.args[i].args);
+                    printf("%s", e->call.args[i].args->addr);
+                    if(i != e->call.n_arg -1) printf(", ");
+                }
+                printf(");\n");
+            }
+            else {
+                sprintf(e->addr, "%s(", e->call.fullname);
+                int i ;
+                for(i = 0; i < e->call.n_arg; i ++ ) {
+                    stmt_for_expr(e->call.args[i].args);
+                    sprintf(e->addr, "%s", e->call.args[i].args->addr);
+                    if(i != e->call.n_arg -1) sprintf(e->addr, ", ");
+                }
+                sprintf(e->addr, ") ");
             }
             break;
     }
@@ -698,8 +785,34 @@ eliminate_python_unique_for_expr(expr_ty e) {
     }
 }
 
-
 static void
 eliminate_python_unique_for_stmt(stmt_ty s) {
-
+    switch(s->kind) {
+        case FuncDef_kind:
+            {
+                enter_new_scope_for_func();
+                outfile = 1;
+                fprintf(fdef, "%s(", s->funcdef.fullname);
+                int n = s->funcdef.args->n_param;
+                int i;
+                for(i = 0; i < n; i ++ ) {
+                    char* name = s->funcdef.args->params[i]->args->name.id;
+                    type_ty tp = s->funcdef.args->params[i]->args->e_type;
+                    insert_to_current_table(name, tp, SE_VARIABLE_KIND);
+                    fprintf(fdef, "%s %s", tp->name, name);
+                    if(i != n-1) {
+                        fprintf(fdef, ", ");
+                    }
+                }
+                fprintf(fdef, ") {\n");
+                assign_type_to_ast(s->funcdef.body);
+                fprintf(fdef, "}\n");
+                
+                exit_scope_from_func();
+                 
+                fprintf(fdef, "%s\n", func_ret->name);
+                outfile = 0;
+            }
+            break;
+    }
 }

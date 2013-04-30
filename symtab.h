@@ -3,8 +3,8 @@
 
 #include "mod.h"
 
-enum symtab_entry_kind { SE_UNKNOWN_KIND, SE_VARIABLE_KIND, SE_CONSTANT_KIND , SE_GLOBAL_KIND, SE_DEFAULT_KIND, SE_TEMP};
-enum symtab_kind {SK_FILE_KIND, SK_FUNCTION_KIND };
+enum symtab_entry_kind { SE_UNKNOWN_KIND, SE_FUNCTION_KIND, SE_VARIABLE_KIND, SE_CONSTANT_KIND , SE_GLOBAL_KIND, SE_DEFAULT_KIND, SE_TEMP};
+enum symtab_kind { SK_FILE_KIND, SK_FUNCTION_KIND };
 
 enum type_kind { UNKNOWN_KIND,BOOLEAN_KIND,  CHAR_KIND, INTEGER_KIND, FLOAT_KIND, STRING_KIND, LIST_KIND, DICT_KIND, POINTER_KIND,
     TUPLE_KIND, FUNCTION_KIND };
@@ -15,11 +15,13 @@ typedef struct symtab * symtab_ty;
 
 
 struct symtab_entry {
+    symtab_ty se_table;
     int se_offset;
     char se_name[128];
     char c_name[128];
     enum symtab_entry_kind se_kind;    
     type_ty se_type;
+    stmt_ty se_node;
 };
 
 
@@ -66,8 +68,12 @@ struct  type{
 void assign_type_to_ast(stmt_seq* ss);
 
 
-
 int insert_to_current_table(char *name, type_ty t, enum symtab_entry_kind kind);
+int insert_incomplete_func_to_table(char* name, stmt_ty node);
 type_ty search_type_for_name(char* name);
+stmt_ty search_stmt_for_name(char* name);
+
+void enter_new_scope_for_func();
+void exit_scope_from_func();
 
 #endif
