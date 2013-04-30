@@ -72,6 +72,9 @@ int insert_to_current_table(char *name, type_ty t, enum symtab_entry_kind kind);
 int insert_incomplete_func_to_table(char* name, stmt_ty node);
 type_ty search_type_for_name(char* name);
 stmt_ty search_stmt_for_name(char* name);
+void change_func_ret_type(char* fullname, type_ty func_ret);
+
+
 
 void enter_new_scope_for_func();
 void exit_scope_from_func();

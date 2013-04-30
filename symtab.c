@@ -72,6 +72,24 @@ search_type_for_name(char* name) {
     return NULL;
 }
 
+
+void
+change_func_ret_type(char* name, type_ty t) {
+    int i;
+    symtab_ty st = cur_table;
+    while(st) {
+        for(i = st->st_size - 1 ; i >= 0 ; -- i) {
+            symtab_entry_ty se = st->st_symbols[i];
+            if(strcmp(se->se_name, name) == 0) {
+                se->se_type = t;
+                break;
+            }
+        }
+        st = st->st_parent;
+    }
+
+}
+
 stmt_ty
 search_stmt_for_name(char* name) {
     int i;

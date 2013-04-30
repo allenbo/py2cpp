@@ -15,10 +15,11 @@ char* newIterator() {
 }
 
 int level = 1;
-int outfile = 0;
 
 static type_ty func_ret = NULL;
 extern FILE* fdef;
+FILE* output = NULL;
+
 
 struct type t_unknown  = {UNKNOWN_KIND, 0 , "void"};
 struct type t_char = {CHAR_KIND, 1, "char"};
@@ -43,10 +44,7 @@ void indent_output() {
     int i ;
     
     for(i= 0 ; i < level; i ++ ) {
-        if(outfile == 1)
-            fprintf(fdef, "\t");
-        else
-            printf("\t");
+        fprintf(output, "\t");
     }
 }
 
@@ -89,7 +87,7 @@ assign_type_to_stmt(stmt_ty s) {
             else
                 eliminate_python_unique_for_expr(s->ret.value);
             indent_output();
-            fprintf(fdef, "return %s;\n", s->ret.value->addr);
+            fprintf(output, "return %s;\n", s->ret.value->addr);
             func_ret = s->ret.value->e_type;
             break;
         case Delete_kind:
@@ -120,10 +118,10 @@ assign_type_to_stmt(stmt_ty s) {
                         case FLOAT_KIND:
                         case STRING_KIND:
                         case BOOLEAN_KIND:
-                            printf("%s %s = %s;\n", value->e_type->name, targets[i]->addr, value->addr);
+                            fprintf(output, "%s %s = %s;\n", value->e_type->name, targets[i]->addr, value->addr);
                             break;
                         case LIST_KIND:
-                            printf("%s & %s = %s;\n", value->e_type->name,
+                            fprintf(output, "%s & %s = %s;\n", value->e_type->name,
                                     targets[i]->addr, value->addr);
                             break;
                     }
@@ -157,36 +155,36 @@ assign_type_to_stmt(stmt_ty s) {
                     if(s->print.values[i]->e_type->kind == LIST_KIND) {
                         if(end == 0)  printf(";\n");
                         indent_output();
-                        printf("%s << \"[\";\n", dest);
+                        fprintf(output, "%s << \"[\";\n", dest);
                         indent_output();
-                        printf("for_each(%s.begin(), %s.end() - 1, output<%s, %s>);\n",
+                        fprintf(output, "for_each(%s.begin(), %s.end() - 1, output<%s, %s>);\n",
                                 s->print.values[i]->addr, s->print.values[i]->addr,
                                 s->print.values[i]->e_type->base->name, dest);
                         indent_output();
-                        printf("%s << *(%s.end() -1);\n", dest, s->print.values[i]->addr);
+                        fprintf(output, "%s << *(%s.end() -1);\n", dest, s->print.values[i]->addr);
                         indent_output();
-                        printf("%s << \"] \";\n", dest);
+                        fprintf(output, "%s << \"] \";\n", dest);
                         fcout = 0;
                         end = 1;
                     }
                     else {
                         if(fcout == 0 ) {
                             indent_output();
-                            printf("%s << %s << \" \"", dest, s->print.values[i]->addr);
+                            fprintf(output, "%s << %s << \" \"", dest, s->print.values[i]->addr);
                             fcout = 1;
                         }else {
-                            printf(" << %s << \" \"", s->print.values[i]->addr);
+                            fprintf(output, " << %s << \" \"", s->print.values[i]->addr);
                         }
                     }
                 }
                 if(fcout == 0) {
                     indent_output();
-                    printf("cout");
+                    fprintf(output, "cout");
                 }
                 if(s->print.newline_mark == 1) {
-                    printf(" << endl;\n");
+                    fprintf(output, " << endl;\n");
                 }else {
-                    printf(";\n");
+                    fprintf(output, ";\n");
                 }
 
             }
@@ -295,9 +293,11 @@ assign_type_to_expr(expr_ty e) {
                 char fullname[50] = "";
                 strcpy(fullname, e->call.func->name.id);
                 int i;
+                e->isplain = 1;
                 for(i = 0; i < e->call.n_arg; i ++ ) {
                     assign_type_to_expr(e->call.args[i].args);
-                    eliminate_python_unique_for_expr(e->call.args[i].args);
+                    if(e->call.args[i].args->isplain == 0) 
+                        e->isplain = 0;
                     switch(e->call.args[i].args->e_type->kind) {
                         case BOOLEAN_KIND:
                             strcat(fullname, "_b");break;
@@ -321,16 +321,16 @@ assign_type_to_expr(expr_ty e) {
                     stmt_ty st = search_stmt_for_name(e->call.func->name.id);
                     insert_to_current_table(fullname, &t_unknown, SE_FUNCTION_KIND);
                     strcpy(st->funcdef.fullname, fullname);
-                    strcpy(e->call.fullname, fullname);
                     push_type_to_arguments(st, e);
                     eliminate_python_unique_for_stmt(st);
                     e->e_type = func_ret;
+                    change_func_ret_type(fullname, func_ret);
                     func_ret = NULL;
                 }
                 else {
                     e->e_type = tp;
                 }
-                e->isplain = 1;
+                strcpy(e->call.fullname, fullname);
             }
             break;
         case Repr_kind:
@@ -425,6 +425,7 @@ push_type_to_arguments(stmt_ty st, expr_ty e) {
 
 void
 assign_type_to_ast(stmt_seq* ss) {
+    if(NULL == output) output = stdout;
     int i = 0;
     for(; i < ss->size; i ++ ) {
         assign_type_to_stmt(ss->seqs[i]);
@@ -472,7 +473,7 @@ stmt_for_expr(expr_ty e) {
             stmt_for_expr(e->binop.right);
             if(e->addr[0] != 0) {
                 indent_output();
-                printf("%s %s = %s %s %s;\n", e->e_type->name, e->addr,
+                fprintf(output, "%s %s = %s %s %s;\n", e->e_type->name, e->addr,
                         l->addr, oper, r->addr); }else {
                 sprintf(e->addr, "(%s %s %s)", l->addr, oper, r->addr);
             }
@@ -481,12 +482,12 @@ stmt_for_expr(expr_ty e) {
         case Num_kind:
             if(e->addr[0] != 0) {
                 indent_output();
-                printf("%s %s = ", e->e_type->name, e->addr);
+                fprintf(output, "%s %s = ", e->e_type->name, e->addr);
                 if(e->num.kind == INTEGER)  {
-                    printf("%d;\n", e->num.ivalue);
+                    fprintf(output, "%d;\n", e->num.ivalue);
                 }
                 else {
-                    printf("%f;\n", e->num.fvalue);
+                    fprintf(output, "%f;\n", e->num.fvalue);
                 }
             }
             else {
@@ -501,7 +502,7 @@ stmt_for_expr(expr_ty e) {
         case Str_kind:
             if(e->addr[0] != 0) {
                 indent_output();
-                printf("%s %s = \"%s\";\n", e->e_type->name, e->addr,  e->str.s);
+                fprintf(output, "%s %s = \"%s\";\n", e->e_type->name, e->addr,  e->str.s);
             }else {
                 sprintf(e->addr, "\"%s\"", e->str.s);
             }
@@ -511,7 +512,7 @@ stmt_for_expr(expr_ty e) {
             stmt_for_expr(e->compare.comparators[0]);
             if(e->addr[0] != 0 ) {
                 indent_output();
-                printf("%s %s = %s %s %s;\n", e->e_type->name, e->addr,
+                fprintf(output, "%s %s = %s %s %s;\n", e->e_type->name, e->addr,
                         e->compare.left->addr,get_cmp_literal(e->compare.ops[0]), e->compare.comparators[0]->addr);
             }else {
                 sprintf(e->addr, "%s %s %s",
@@ -521,24 +522,24 @@ stmt_for_expr(expr_ty e) {
         case Call_kind:
             if(e->addr[0] != 0) {
                 indent_output();
-                printf("%s %s = %s(", e->e_type->name,  e->addr, e->call.fullname);
+                fprintf(output, "%s %s = %s(", e->e_type->name,  e->addr, e->call.fullname);
                 int i ;
                 for(i = 0; i < e->call.n_arg; i ++ ) {
                     stmt_for_expr(e->call.args[i].args);
-                    printf("%s", e->call.args[i].args->addr);
+                    fprintf(output, "%s", e->call.args[i].args->addr);
                     if(i != e->call.n_arg -1) printf(", ");
                 }
-                printf(");\n");
+                fprintf(output, ");\n");
             }
             else {
                 sprintf(e->addr, "%s(", e->call.fullname);
                 int i ;
                 for(i = 0; i < e->call.n_arg; i ++ ) {
                     stmt_for_expr(e->call.args[i].args);
-                    sprintf(e->addr, "%s", e->call.args[i].args->addr);
-                    if(i != e->call.n_arg -1) sprintf(e->addr, ", ");
+                    strcat(e->addr,e->call.args[i].args->addr);
+                    if(i != e->call.n_arg -1) strcat(e->addr, ", ");
                 }
-                sprintf(e->addr, ") ");
+                strcat(e->addr, ") ");
             }
             break;
     }
@@ -559,23 +560,23 @@ eliminate_python_unique_for_expr(expr_ty e) {
             if(e->binop.left->e_type->kind == LIST_KIND) {
                 if(e->binop.op == Add) {
                     indent_output();
-                    printf("%s %s;\n", e->e_type->name, e->addr);
+                    fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
                     eliminate_python_unique_for_expr(e->binop.left);
 
                     char* iter = newIterator();
                     indent_output();
-                    printf("for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, l->addr, iter);
+                    fprintf(output, "for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, l->addr, iter);
                     level ++;
                     indent_output();
-                    printf("%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter);
+                    fprintf(output, "%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter);
                     level --;
                     eliminate_python_unique_for_expr(e->binop.right);
 
                     indent_output();
-                    printf("for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, r->addr, iter);
+                    fprintf(output, "for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, r->addr, iter);
                     level ++;
                     indent_output();
-                    printf("%s.push_back(%s[%s]);\n", e->addr, r->addr, iter);
+                    fprintf(output, "%s.push_back(%s[%s]);\n", e->addr, r->addr, iter);
                     level --;
                     free(iter);
                 }
@@ -592,17 +593,17 @@ eliminate_python_unique_for_expr(expr_ty e) {
                     else
                         eliminate_python_unique_for_expr(l);
                     indent_output();
-                    printf("%s %s;\n", e->e_type->name, e->addr);
+                    fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
                     char* iter = newIterator();
                     char* iter1 = newIterator();
                     indent_output();
-                    printf("for( int %s = 0; %s < %s; %s ++ )\n", iter, iter, r->addr, iter);
+                    fprintf(output, "for( int %s = 0; %s < %s; %s ++ )\n", iter, iter, r->addr, iter);
                     level ++;
                     indent_output();
-                    printf("for( int %s = 0; %s < %s.size(); %s ++ )\n", iter1, iter1, l->addr, iter1);
+                    fprintf(output, "for( int %s = 0; %s < %s.size(); %s ++ )\n", iter1, iter1, l->addr, iter1);
                     level ++;
                     indent_output();
-                    printf("%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter1);
+                    fprintf(output, "%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter1);
                     level -= 2;
                     free(iter);
                     free(iter1);
@@ -625,7 +626,7 @@ eliminate_python_unique_for_expr(expr_ty e) {
                     eliminate_python_unique_for_expr(r);
                 }
                 indent_output();
-                printf("%s %s = pow(%s, %s);\n", e->e_type->name, e->addr,
+                fprintf(output, "%s %s = pow(%s, %s);\n", e->e_type->name, e->addr,
                         l->addr, r->addr);
                 //e->isplain = 1;
             }else if(e->binop.op == Mult) {
@@ -636,7 +637,7 @@ eliminate_python_unique_for_expr(expr_ty e) {
                         r = t;
                     }
                     indent_output();
-                    printf("%s %s;\n", "string", e->addr);
+                    fprintf(output, "%s %s;\n", "string", e->addr);
                     char * iter = newIterator();
                     if(r->isplain) {
                         stmt_for_expr(r);
@@ -645,10 +646,10 @@ eliminate_python_unique_for_expr(expr_ty e) {
                         eliminate_python_unique_for_expr(r);
                     }
                     indent_output();
-                    printf("for(int %s = 0; %s < %s; %s ++ ) {\n", iter, iter, r->addr, iter);
+                    fprintf(output, "for(int %s = 0; %s < %s; %s ++ ) {\n", iter, iter, r->addr, iter);
                     level ++;
                     indent_output();
-                    printf("%s += %s;\n", e->addr, l->addr);
+                    fprintf(output, "%s += %s;\n", e->addr, l->addr);
                     level --;
                     free(iter);
                 }
@@ -663,7 +664,7 @@ eliminate_python_unique_for_expr(expr_ty e) {
             if(e->addr[0] == 0)
                 strcpy(e->addr, newTemp());
             indent_output();
-            printf("%s %s;\n", e->e_type->name, e->addr);
+            fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
 
             int plain = e->list.elts[0]->isplain;
             if(plain)
@@ -671,7 +672,7 @@ eliminate_python_unique_for_expr(expr_ty e) {
             else
                 eliminate_python_unique_for_expr(e->list.elts[0]);
             indent_output();
-            printf("%s.push_back(%s);\n", e->addr, e->list.elts[0]->addr);
+            fprintf(output, "%s.push_back(%s);\n", e->addr, e->list.elts[0]->addr);
             for(i = 1; i < e->list.n_elt;  i ++ ) {
                 plain = e->list.elts[i]->isplain;
                 if(plain)
@@ -679,14 +680,14 @@ eliminate_python_unique_for_expr(expr_ty e) {
                 else
                     eliminate_python_unique_for_expr(e->list.elts[i]);
                 indent_output();
-                printf("%s.push_back(%s);\n", e->addr, e->list.elts[i]->addr);
+                fprintf(output, "%s.push_back(%s);\n", e->addr, e->list.elts[i]->addr);
             }
-            printf("\n");
+            fprintf(output, "\n");
             break;
         case ListComp_kind:
             {
                 indent_output();
-                printf("%s %s;\n", e->e_type->name, e->addr);
+                fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
                 for(i = 0; i < e->listcomp.n_com; i ++ )  {
                     eliminate_python_unique_for_expr(e->listcomp.generators[i]->iter);
                     int j;
@@ -701,26 +702,25 @@ eliminate_python_unique_for_expr(expr_ty e) {
                 int oldlevel = level;
                 for(i = 0; i < e->listcomp.n_com; i ++ ) {
                     indent_output();
-                    printf("for(%s %s: %s)\n", e->listcomp.elt->e_type->name, e->listcomp.generators[i]->target->addr,
+                    fprintf(output, "for(%s %s: %s)\n", e->listcomp.elt->e_type->name, e->listcomp.generators[i]->target->addr,
                             e->listcomp.generators[i]->iter->addr);
                     level ++;
                     if(e->listcomp.generators[i]->n_test) {
                         indent_output();
-                        printf("if( ");
+                        fprintf(output, "if( ");
                         int j;
                         for(j = 0; j < e->listcomp.generators[i]->n_test; j ++ ) {
-                            printf("%s", e->listcomp.generators[i]->tests[j]->addr);
+                            fprintf(output, "%s", e->listcomp.generators[i]->tests[j]->addr);
                             if(j != e->listcomp.generators[i]->n_test - 1)
-                                printf(" && ");
+                                fprintf(output, " && ");
                         }
-                        printf(" )\n");
+                        fprintf(output, " )\n");
                         level ++;
                     }
                 }
                 indent_output();
-                printf("%s.push_back(%s);\n", e->addr, e->listcomp.elt->addr);
+                fprintf(output, "%s.push_back(%s);\n", e->addr, e->listcomp.elt->addr);
                 level = oldlevel;
-
             }
             break;
         case Compare_kind:
@@ -736,7 +736,7 @@ eliminate_python_unique_for_expr(expr_ty e) {
                         eliminate_python_unique_for_expr(e->compare.comparators[i]);
                 }
                 indent_output();
-                printf("%s %s = ", e->e_type->name, e->addr);
+                fprintf(output, "%s %s = ", e->e_type->name, e->addr);
                 for(i = 0; i< e->compare.n_comparator; i ++ ) {
                     char* prev = NULL;
                     char* p = NULL;
@@ -748,20 +748,20 @@ eliminate_python_unique_for_expr(expr_ty e) {
                     p = e->compare.comparators[i]->addr;
                     switch(e->compare.ops[i]) {
                         case NotIn:
-                            printf("find(%s.begin(), %s.end(), %s) == %s.end()", p, p, prev, p);
+                            fprintf(output, "find(%s.begin(), %s.end(), %s) == %s.end()", p, p, prev, p);
                             break;
                         case In:
-                            printf("find(%s.begin(), %s.end(), %s) != %s.end()", p, p, prev, p);
+                            fprintf(output, "find(%s.begin(), %s.end(), %s) != %s.end()", p, p, prev, p);
                             break;
                         default:
-                            printf("%s", prev);
-                            printf(" %s %s", get_cmp_literal(e->compare.ops[i]), p);
+                            fprintf(output, "%s", prev);
+                            fprintf(output, " %s %s", get_cmp_literal(e->compare.ops[i]), p);
                     }
                     if(i != e->compare.n_comparator -1 ) {
-                        printf(" && ");
+                        fprintf(output, " && ");
                     }
                 }
-                printf(";\n");
+                fprintf(output, ";\n");
             }
             else {
                 for(i = 0; i< e->compare.n_comparator; i ++ ) {
@@ -791,27 +791,27 @@ eliminate_python_unique_for_stmt(stmt_ty s) {
         case FuncDef_kind:
             {
                 enter_new_scope_for_func();
-                outfile = 1;
-                fprintf(fdef, "%s(", s->funcdef.fullname);
+                output = fdef;
+                fprintf(output, "%s(", s->funcdef.fullname);
                 int n = s->funcdef.args->n_param;
                 int i;
                 for(i = 0; i < n; i ++ ) {
                     char* name = s->funcdef.args->params[i]->args->name.id;
                     type_ty tp = s->funcdef.args->params[i]->args->e_type;
                     insert_to_current_table(name, tp, SE_VARIABLE_KIND);
-                    fprintf(fdef, "%s %s", tp->name, name);
+                    fprintf(output, "%s %s", tp->name, name);
                     if(i != n-1) {
-                        fprintf(fdef, ", ");
+                        fprintf(output, ", ");
                     }
                 }
-                fprintf(fdef, ") {\n");
+                fprintf(output, ") {\n");
                 assign_type_to_ast(s->funcdef.body);
-                fprintf(fdef, "}\n");
+                fprintf(output, "}\n");
                 
                 exit_scope_from_func();
                  
-                fprintf(fdef, "%s\n", func_ret->name);
-                outfile = 0;
+                fprintf(output, "%s\n", func_ret->name);
+                output = stdout;
             }
             break;
     }
