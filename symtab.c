@@ -31,10 +31,11 @@ create_symtab_entry(char* name, type_ty tp, enum symtab_entry_kind kind, symtab_
 }
 
 static symtab_ty 
-create_symtab() {
+create_symtab(symtab_ty p) {
     symtab_ty st  = (symtab_ty) malloc (sizeof(struct symtab));
     memset(st, 0, sizeof(struct symtab));
     st->st_capacity = 8;
+    st->st_parent = p;
     st->st_symbols = (symtab_entry_ty*) malloc (sizeof(symtab_entry_ty) * st->st_capacity);
     return st;
 }
@@ -53,7 +54,7 @@ symtab_ty get_global_table() { return global_table; }
 type_ty
 search_type_for_name(char* name) {
     if(global_table == NULL) {
-        global_table = create_symtab();
+        global_table = create_symtab(NULL);
         cur_table = global_table;
         return NULL;
     }
@@ -110,7 +111,7 @@ search_stmt_for_name(char* name) {
 int
 insert_to_current_table(char* name, type_ty tp, enum symtab_entry_kind kind) {
     if(global_table == NULL) {
-        global_table = create_symtab();
+        global_table = create_symtab(NULL);
         cur_table = global_table;
     }
 
@@ -126,7 +127,7 @@ insert_to_current_table(char* name, type_ty tp, enum symtab_entry_kind kind) {
 int
 insert_incomplete_func_to_table(char* name, stmt_ty node) {
     if(global_table == NULL) {
-        global_table = create_symtab();
+        global_table = create_symtab(NULL);
         cur_table = global_table;
     }
 
@@ -150,7 +151,7 @@ enter_new_scope_for_func() {
         func_table->st_children = (symtab_ty*) realloc (func_table->st_children,
                 sizeof(symtab_ty) * func_table->child_capacity) ;
     }
-    func_table->st_children[func_table->n_child ++ ] = create_symtab();
+    func_table->st_children[func_table->n_child ++ ] = create_symtab(func_table);
     symtab_ty tmp = cur_table;
     cur_table = func_table->st_children[func_table->n_child - 1];
     func_table = tmp;

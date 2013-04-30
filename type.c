@@ -65,6 +65,8 @@ type_compare(type_ty t1, type_ty t2) {
 
 static type_ty
 max_type(type_ty t1, type_ty t2) {
+    if(t1 == &t_unknown ) return t2;
+    if(t2 == &t_unknown) return t1;
     if(t1 != &t_integer && t1 != &t_float) return t1;
     if(t2 != &t_integer && t2 != &t_float) return t2;
     if(t1 == t2) return t1;
@@ -344,8 +346,7 @@ assign_type_to_expr(expr_ty e) {
                     e->e_type = &t_float;
                     break;
             }
-            e->isplain = 1;
-            break;
+            e->isplain = 1; break;
         case Str_kind:
             e->e_type = &t_string;
             e->isplain = 1;
@@ -780,6 +781,39 @@ eliminate_python_unique_for_expr(expr_ty e) {
                         strcat(e->addr, " && ");
                     }
                 }
+            }
+            break;
+        case Call_kind:
+            if(e->addr[0] != 0) {
+                int i ;
+                for(i = 0; i < e->call.n_arg; i ++ ) {
+                    if(e->call.args[i].args->isplain)
+                        stmt_for_expr(e->call.args[i].args);
+                    else
+                        eliminate_python_unique_for_expr(e->call.args[i].args);
+                }
+                indent_output();
+                fprintf(output, "%s %s = %s(", e->e_type->name,  e->addr, e->call.fullname);
+                for(i = 0; i < e->call.n_arg; i ++ ) {
+                    fprintf(output, "%s", e->call.args[i].args->addr);
+                    if(i != e->call.n_arg -1) printf(", ");
+                }
+                fprintf(output, ");\n");
+            }
+            else {
+                int i ;
+                for(i = 0; i < e->call.n_arg; i ++ ) {
+                    if(e->call.args[i].args->isplain)
+                        stmt_for_expr(e->call.args[i].args);
+                    else
+                        eliminate_python_unique_for_expr(e->call.args[i].args);
+                }
+                sprintf(e->addr, "%s(", e->call.fullname);
+                for(i = 0; i < e->call.n_arg; i ++ ) {
+                    strcat(e->addr,e->call.args[i].args->addr);
+                    if(i != e->call.n_arg -1) strcat(e->addr, ", ");
+                }
+                strcat(e->addr, ") ");
             }
             break;
     }
