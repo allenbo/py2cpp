@@ -77,6 +77,14 @@ static void
 assign_type_to_stmt(stmt_ty s) {
     int i;
     switch(s->kind) {
+        case Break_kind:
+            indent_output();
+            fprintf(output, "break;\n");
+            break;
+        case Continue_kind:
+            indent_output();
+            fprintf(output, "continue;\n");
+            break;
         case FuncDef_kind:
             insert_incomplete_func_to_table(s->funcdef.name,s);
             break;
