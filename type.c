@@ -7,12 +7,12 @@ char* newTemp() {
     static int i = 0;
     char * tmp = (char* ) malloc( sizeof(char) * 10);
     sprintf(tmp, "_t%d", i++); return tmp; }
-char* newIterator() {
-    static int i = 0;
-    char* tmp = (char*) malloc( sizeof(char) * 4);
-    sprintf(tmp, "i%d", i ++ );
-    return tmp;
-}
+    char* newIterator() {
+        static int i = 0;
+        char* tmp = (char*) malloc( sizeof(char) * 4);
+        sprintf(tmp, "i%d", i ++ );
+        return tmp;
+    }
 
 int level = 1;
 
@@ -42,7 +42,7 @@ static void eliminate_python_unique_for_stmt(stmt_ty s);
 
 void indent_output() {
     int i ;
-    
+
     for(i= 0 ; i < level; i ++ ) {
         fprintf(output, "\t");
     }
@@ -111,9 +111,10 @@ assign_type_to_stmt(stmt_ty s) {
                 assign_type_to_expr(value);
                 strcpy(value->addr, targets[0]->name.id);
 
-                eliminate_python_unique_for_expr(value);
                 if(value->isplain)
                     stmt_for_expr(value);
+                else
+                    eliminate_python_unique_for_expr(value);
 
                 insert_to_current_table(targets[0]->name.id,
                         value->e_type, SE_VARIABLE_KIND);
@@ -206,7 +207,7 @@ assign_type_to_stmt(stmt_ty s) {
             s->forstmt.target->e_type = s->forstmt.iter->e_type->base;
             insert_to_current_table(s->forstmt.target->name.id,
                     s->forstmt.target->e_type, SE_VARIABLE_KIND);
-            
+
             if(s->forstmt.target->isplain)
                 stmt_for_expr(s->forstmt.target);
             else
@@ -215,8 +216,8 @@ assign_type_to_stmt(stmt_ty s) {
                 stmt_for_expr(s->forstmt.iter);
             else
                 eliminate_python_unique_for_expr(s->forstmt.iter);
-            
-            
+
+
             char* iter = newIterator();
             indent_output();
             fprintf(output, "int %s = 0;\n", iter);
@@ -231,7 +232,7 @@ assign_type_to_stmt(stmt_ty s) {
             level --;
             indent_output();
             fprintf(output, "}\n");
-            
+
             if(s->forstmt.orelse != NULL) {
                 indent_output();
                 fprintf(output, "if(%s == %s.size()) {\n", iter, s->forstmt.iter->addr);
@@ -333,7 +334,9 @@ assign_type_to_expr(expr_ty e) {
             assign_type_to_expr(e->binop.right);
             e->isplain = e->binop.left->isplain & e->binop.right->isplain;
 
-            if(e->binop.op == Mult && (e->binop.left->e_type->kind == STRING_KIND || e->binop.right->e_type->kind == STRING_KIND)) {
+            if(e->binop.op == Mult &&
+                    (e->binop.left->e_type->kind == STRING_KIND || 
+                     e->binop.right->e_type->kind == STRING_KIND)) {
                 e->isplain = 0;
             }
             if(e->binop.op == Pow) {
@@ -456,6 +459,32 @@ assign_type_to_expr(expr_ty e) {
         case Attribute_kind:
             break;
         case Subscript_kind:
+            {
+                assign_type_to_expr(e->sub.value);
+                e->e_type = e->sub.value->e_type;
+                e->isplain = 1; 
+                int n = e->sub.n_slice;
+                int i; 
+                for(i = 0; i < n; i ++ ) {
+                    slice_ty s = e->sub.slices[i];
+                    if(s->kind == Slice_kind) {
+                        if(s->slice.lower)
+                            assign_type_to_expr(s->slice.lower);
+                        if(s->slice.upper)
+                            assign_type_to_expr(s->slice.upper);
+                        if(s->slice.step)
+                            assign_type_to_expr(s->slice.step);
+                        e->isplain = 0;
+                    }else {
+                        assign_type_to_expr(s->index.value);
+                        e->e_type = e->e_type->base;
+                        e->isplain = s->index.value->isplain;
+                    }
+                }
+                if(e->sub.value->isplain == 0) {
+                    e->isplain = 0;
+                }
+            } 
             break;
         case Name_kind:
             {
@@ -501,6 +530,7 @@ assign_type_to_comprehension(comprehension_ty com) {
 
     push_type_to_expr(target);
 }
+
 
 
 static void
@@ -568,24 +598,24 @@ stmt_for_expr(expr_ty e) {
     if(e->isplain == 0) return ;
     switch(e->kind) {
         case BinOp_kind:
-        {
-            expr_ty l = e->binop.left;
-            expr_ty r = e->binop.right;
-            char* oper = get_op_literal(e->binop.op);
-            stmt_for_expr(e->binop.left);
-            stmt_for_expr(e->binop.right);
-            if(e->addr[0] != 0) {
-                indent_output();
-                if( search_type_for_name(e->addr) == NULL) {
-                    fprintf(output, "%s %s = %s %s %s;\n", e->e_type->name, e->addr,
-                            l->addr, oper, r->addr); 
+            {
+                expr_ty l = e->binop.left;
+                expr_ty r = e->binop.right;
+                char* oper = get_op_literal(e->binop.op);
+                stmt_for_expr(e->binop.left);
+                stmt_for_expr(e->binop.right);
+                if(e->addr[0] != 0) {
+                    indent_output();
+                    if( search_type_for_name(e->addr) == NULL) {
+                        fprintf(output, "%s %s = %s %s %s;\n", e->e_type->name, e->addr,
+                                l->addr, oper, r->addr); 
+                    }else {
+                        fprintf(output, "%s = %s %s %s;\n", e->addr,l->addr, oper, r->addr); 
+                    }
                 }else {
-                    fprintf(output, "%s = %s %s %s;\n", e->addr,l->addr, oper, r->addr); 
+                    sprintf(e->addr, "(%s %s %s)", l->addr, oper, r->addr);
                 }
-            }else {
-                sprintf(e->addr, "(%s %s %s)", l->addr, oper, r->addr);
             }
-        }
             break;
         case Num_kind:
             if(e->addr[0] != 0) {
@@ -669,6 +699,34 @@ stmt_for_expr(expr_ty e) {
                 strcat(e->addr, ") ");
             }
             break;
+        case Subscript_kind:
+            {
+                stmt_for_expr(e->sub.value);
+                int n = e->sub.n_slice;
+                int i;
+                for(i = 0; i < n; i ++ ) {
+                    slice_ty s = e->sub.slices[i];
+                    stmt_for_expr(s->index.value);
+                }
+                if(e->addr[0] != 0) {
+                    indent_output();
+                    if(search_type_for_name(e->addr) == NULL)
+                        fprintf(output, "%s %s = %s", e->e_type->name, e->addr, e->sub.value->addr);
+                    else
+                        fprintf(output, "%s = %s", e->addr, e->sub.value->addr);
+
+                    for(i =0; i < n; i ++ ) {
+                        fprintf(output, "[%s]", e->sub.slices[i]->index.value->addr);
+                    }
+                    fprintf(output, ";\n");
+                }else {
+                    sprintf(e->addr, "%s", e->sub.value->addr);
+                    for(i = 0; i < n; i ++ ) {
+                        sprintf(e->addr + strlen(e->addr), "[%s]", e->sub.slices[i]->index.value->addr);
+                    }
+                }
+            }
+            break;
     }
 }
 
@@ -679,132 +737,132 @@ eliminate_python_unique_for_expr(expr_ty e) {
     int i;
     switch(e->kind) {
         case BinOp_kind:
-        {
-            if(e->addr[0] == 0)
-                strcpy(e->addr, newTemp());
-            expr_ty l = e->binop.left;
-            expr_ty r = e->binop.right;
-            if(e->binop.left->e_type->kind == LIST_KIND) {
-                if(e->binop.op == Add) {
-                    type_ty tp = search_type_for_name(e->addr);
-                    indent_output();
-                    if(NULL == tp) {
-                        fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
+            {
+                if(e->addr[0] == 0)
+                    strcpy(e->addr, newTemp());
+                expr_ty l = e->binop.left;
+                expr_ty r = e->binop.right;
+                if(e->binop.left->e_type->kind == LIST_KIND) {
+                    if(e->binop.op == Add) {
+                        type_ty tp = search_type_for_name(e->addr);
+                        indent_output();
+                        if(NULL == tp) {
+                            fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
+                        }else {
+                            fprintf(output, "%s.clear();\n", e->addr);
+                        }
+                        eliminate_python_unique_for_expr(e->binop.left);
+
+                        char* iter = newIterator();
+                        indent_output();
+                        fprintf(output, "for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, l->addr, iter);
+                        level ++;
+                        indent_output();
+                        fprintf(output, "%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter);
+                        level --;
+                        eliminate_python_unique_for_expr(e->binop.right);
+
+                        indent_output();
+                        fprintf(output, "for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, r->addr, iter);
+                        level ++;
+                        indent_output();
+                        fprintf(output, "%s.push_back(%s[%s]);\n", e->addr, r->addr, iter);
+                        level --;
+                        free(iter);
+                    }
+                    else if(e->binop.op == Mult) {
+                        if(r->e_type->kind == LIST_KIND) {
+                            expr_ty t = r; r = l; l = t;
+                        }
+                        if(r->isplain)
+                            stmt_for_expr(r);
+                        else
+                            eliminate_python_unique_for_expr(r);
+                        if(l->isplain)
+                            stmt_for_expr(l);
+                        else
+                            eliminate_python_unique_for_expr(l);
+                        indent_output();
+                        type_ty tp = search_type_for_name(e->addr); 
+                        if(NULL == tp)
+                            fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
+                        else
+                            fprintf(output, "%s.clear();\n", e->addr);
+
+                        char* iter = newIterator();
+                        char* iter1 = newIterator();
+                        indent_output();
+                        fprintf(output, "for( int %s = 0; %s < %s; %s ++ )\n", iter, iter, r->addr, iter);
+                        level ++;
+                        indent_output();
+                        fprintf(output, "for( int %s = 0; %s < %s.size(); %s ++ )\n", iter1, iter1, l->addr, iter1);
+                        level ++;
+                        indent_output();
+                        fprintf(output, "%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter1);
+                        level -= 2;
+                        free(iter);
+                        free(iter1);
                     }else {
-                        fprintf(output, "%s.clear();\n", e->addr);
+                        fprintf(stderr, "List Error\n");
+                        exit(-1);
                     }
-                    eliminate_python_unique_for_expr(e->binop.left);
-
-                    char* iter = newIterator();
-                    indent_output();
-                    fprintf(output, "for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, l->addr, iter);
-                    level ++;
-                    indent_output();
-                    fprintf(output, "%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter);
-                    level --;
-                    eliminate_python_unique_for_expr(e->binop.right);
-
-                    indent_output();
-                    fprintf(output, "for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, r->addr, iter);
-                    level ++;
-                    indent_output();
-                    fprintf(output, "%s.push_back(%s[%s]);\n", e->addr, r->addr, iter);
-                    level --;
-                    free(iter);
                 }
-                else if(e->binop.op == Mult) {
-                    if(r->e_type->kind == LIST_KIND) {
-                        expr_ty t = r; r = l; l = t;
-                    }
-                    if(r->isplain)
-                        stmt_for_expr(r);
-                    else
-                        eliminate_python_unique_for_expr(r);
-                    if(l->isplain)
+                else if(e->binop.op == Pow) {
+                    if(l->isplain) {
                         stmt_for_expr(l);
-                    else
+                    }
+                    else {
                         eliminate_python_unique_for_expr(l);
-                    indent_output();
-                    type_ty tp = search_type_for_name(e->addr); 
-                    if(NULL == tp)
-                        fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
-                    else
-                        fprintf(output, "%s.clear();\n", e->addr);
-
-                    char* iter = newIterator();
-                    char* iter1 = newIterator();
-                    indent_output();
-                    fprintf(output, "for( int %s = 0; %s < %s; %s ++ )\n", iter, iter, r->addr, iter);
-                    level ++;
-                    indent_output();
-                    fprintf(output, "for( int %s = 0; %s < %s.size(); %s ++ )\n", iter1, iter1, l->addr, iter1);
-                    level ++;
-                    indent_output();
-                    fprintf(output, "%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter1);
-                    level -= 2;
-                    free(iter);
-                    free(iter1);
-                }else {
-                    fprintf(stderr, "List Error\n");
-                    exit(-1);
-                }
-            }
-            else if(e->binop.op == Pow) {
-                if(l->isplain) {
-                    stmt_for_expr(l);
-                }
-                else {
-                    eliminate_python_unique_for_expr(l);
-                }
-                if(r->isplain) {
-                    stmt_for_expr(r);
-                }
-                else {
-                    eliminate_python_unique_for_expr(r);
-                }
-                type_ty tp = search_type_for_name(e->addr);
-                indent_output();
-                if(NULL == tp)  {
-                    fprintf(output, "%s %s = pow(%s, %s);\n", e->e_type->name, e->addr,
-                        l->addr, r->addr);
-                }
-                else 
-                    fprintf(output, "%s = pow(%s, %s);\n",e->addr, l->addr, r->addr);
-                //e->isplain = 1;
-            }else if(e->binop.op == Mult) {
-                if(l->e_type->kind == STRING_KIND || r->e_type->kind == STRING_KIND) {
-                    if(r->kind == Str_kind) {
-                        expr_ty t = l;
-                        l = r;
-                        r = t;
                     }
-                    indent_output();
-                    if(search_type_for_name(e->addr) == NULL) {
-                        fprintf(output, "%s %s;\n", "string", e->addr);
-                    }else {
-                        fprintf(output, "%s.clear();\n", e->addr);
-                    }
-                    char * iter = newIterator();
                     if(r->isplain) {
                         stmt_for_expr(r);
                     }
                     else {
                         eliminate_python_unique_for_expr(r);
                     }
+                    type_ty tp = search_type_for_name(e->addr);
                     indent_output();
-                    fprintf(output, "for(int %s = 0; %s < %s; %s ++ ) {\n", iter, iter, r->addr, iter);
-                    level ++;
-                    indent_output();
-                    fprintf(output, "%s += %s;\n", e->addr, l->addr);
-                    level --;
-                    free(iter);
+                    if(NULL == tp)  {
+                        fprintf(output, "%s %s = pow(%s, %s);\n", e->e_type->name, e->addr,
+                                l->addr, r->addr);
+                    }
+                    else 
+                        fprintf(output, "%s = pow(%s, %s);\n",e->addr, l->addr, r->addr);
+                    //e->isplain = 1;
+                }else if(e->binop.op == Mult) {
+                    if(l->e_type->kind == STRING_KIND || r->e_type->kind == STRING_KIND) {
+                        if(r->kind == Str_kind) {
+                            expr_ty t = l;
+                            l = r;
+                            r = t;
+                        }
+                        indent_output();
+                        if(search_type_for_name(e->addr) == NULL) {
+                            fprintf(output, "%s %s;\n", "string", e->addr);
+                        }else {
+                            fprintf(output, "%s.clear();\n", e->addr);
+                        }
+                        char * iter = newIterator();
+                        if(r->isplain) {
+                            stmt_for_expr(r);
+                        }
+                        else {
+                            eliminate_python_unique_for_expr(r);
+                        }
+                        indent_output();
+                        fprintf(output, "for(int %s = 0; %s < %s; %s ++ ) {\n", iter, iter, r->addr, iter);
+                        level ++;
+                        indent_output();
+                        fprintf(output, "%s += %s;\n", e->addr, l->addr);
+                        level --;
+                        free(iter);
+                    }
+                }else {
+                    eliminate_python_unique_for_expr(l);
+                    eliminate_python_unique_for_expr(r);
+                    e->isplain = 1;
                 }
-            }else {
-                eliminate_python_unique_for_expr(l);
-                eliminate_python_unique_for_expr(r);
-                e->isplain = 1;
             }
-        }
             break;
         case List_kind:
             if(e->addr[0] == 0)
@@ -857,7 +915,8 @@ eliminate_python_unique_for_expr(expr_ty e) {
                 int oldlevel = level;
                 for(i = 0; i < e->listcomp.n_com; i ++ ) {
                     indent_output();
-                    fprintf(output, "for(%s %s: %s)\n", e->listcomp.elt->e_type->name, e->listcomp.generators[i]->target->addr,
+                    fprintf(output, "for(%s %s: %s)\n", e->listcomp.elt->e_type->name,
+                            e->listcomp.generators[i]->target->addr,
                             e->listcomp.generators[i]->iter->addr);
                     level ++;
                     if(e->listcomp.generators[i]->n_test) {
@@ -941,7 +1000,8 @@ eliminate_python_unique_for_expr(expr_ty e) {
                             sprintf(e->addr, "find(%s.begin(), %s.end(), %s) != %s.end()", p, p, prev, p);
                             break;
                         default:
-                            sprintf(e->addr, "%s %s %s", prev, get_cmp_literal(e->compare.ops[i]), e->compare.comparators[i]->addr);
+                            sprintf(e->addr, "%s %s %s", prev,
+                                    get_cmp_literal(e->compare.ops[i]), e->compare.comparators[i]->addr);
                             break;
                     }
                     if(i != e->compare.n_comparator -1 ) {
@@ -964,7 +1024,7 @@ eliminate_python_unique_for_expr(expr_ty e) {
                     fprintf(output, "%s %s = %s(", e->e_type->name,  e->addr, e->call.fullname);
                 else
                     fprintf(output, "s = %s(",  e->addr, e->call.fullname);
-                    
+
                 for(i = 0; i < e->call.n_arg; i ++ ) {
                     fprintf(output, "%s", e->call.args[i].args->addr);
                     if(i != e->call.n_arg -1) printf(", ");
@@ -985,6 +1045,80 @@ eliminate_python_unique_for_expr(expr_ty e) {
                     if(i != e->call.n_arg -1) strcat(e->addr, ", ");
                 }
                 strcat(e->addr, ") ");
+            }
+            break;
+        case Subscript_kind:
+            if(e->sub.value->isplain)
+                stmt_for_expr(e->sub.value);
+            else
+                eliminate_python_unique_for_expr(e->sub.value);
+
+            {
+                int n = e->sub.n_slice;
+                int i;
+                /*
+                   for(i = 0; i < n; i ++ ) {
+
+                   }*/
+                if(n == 1 && e->sub.slices[0]->kind == Index_kind) {
+                    if(e->sub.slices[0]->index.value->isplain)
+                        stmt_for_expr(e->sub.slices[0]->index.value);
+                    else
+                        eliminate_python_unique_for_expr(e->sub.slices[0]->index.value);
+
+                    if(e->addr[0] == 0) {
+                        sprintf(e->addr, "%s[%s]", e->sub.value->addr,
+                                e->sub.slices[0]->index.value->addr);
+                    }else {
+                        indent_output();
+                        if(search_type_for_name(e->addr) == NULL)
+                            fprintf(output, "%s %s  = %s[%s];\n", e->e_type->name,
+                                    e->addr, e->sub.value->addr, e->sub.slices[0]->index.value->addr);
+                    }
+
+                }else if(n == 1 && e->sub.slices[0]->kind == Slice_kind) {
+                    slice_ty s = e->sub.slices[0];
+                    if(s->slice.lower)
+                        if(s->slice.lower->isplain)
+                            stmt_for_expr(s->slice.lower);
+                        else
+                            eliminate_python_unique_for_expr(s->slice.lower);
+
+                    if(s->slice.upper)
+                        if(s->slice.upper->isplain)
+                            stmt_for_expr(s->slice.upper);
+                        else
+                            eliminate_python_unique_for_expr(s->slice.upper);
+
+                    if(strcmp(s->slice.upper->addr, "-1") == 0) {
+                        sprintf(s->slice.upper->addr, "%s.size()", e->sub.value->addr);
+                    }
+                    if(s->slice.step)
+                        if(s->slice.step->isplain)
+                            stmt_for_expr(s->slice.step);
+                        else
+                            eliminate_python_unique_for_expr(s->slice.step);
+
+                    if(e->addr[0] == 0) {
+                        strcpy(e->addr, newTemp());
+                    }
+                    if(search_type_for_name(e->addr) == NULL) {
+                        indent_output();
+                        fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
+                    }
+
+                    indent_output();
+                    char* iter = newIterator();
+                    fprintf(output, "for(int %s = %s; %s < %s; %s += %s)\n",
+                            iter, s->slice.lower->addr, iter, s->slice.upper->addr,
+                            iter, s->slice.step->addr);
+                    level ++;
+                    indent_output();
+                    fprintf(output, "%s.push_back(%s[%s]);\n", e->addr,
+                            e->sub.value->addr, iter);
+                    level --;
+                    free(iter);
+                }
             }
             break;
     }
@@ -1012,9 +1146,9 @@ eliminate_python_unique_for_stmt(stmt_ty s) {
                 fprintf(output, ") {\n");
                 assign_type_to_ast(s->funcdef.body);
                 fprintf(output, "}\n");
-                
+
                 exit_scope_from_func();
-                 
+
                 fprintf(output, "%s\n", func_ret->name);
                 output = stdout;
             }
