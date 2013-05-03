@@ -209,6 +209,15 @@ assign_type_to_stmt(stmt_ty s) {
             level --;
             indent_output();
             printf("}\n");
+            if(s->ifstmt.orelse != NULL) {
+                indent_output();
+                printf("else {\n");
+                level++;
+                assign_type_to_ast(s->ifstmt.orelse);
+                level --;
+                indent_output();
+                printf("}\n");
+            }
             break;
         case With_kind:
             break;

@@ -1447,10 +1447,12 @@ ast_for_if_stmt(const node* n) {
     if(NULL == body ) return NULL;
     
     int n_elif;
+    int offset = 0;
     if( TYPE(CHILD(n, NCH(n) - 3)) == NAME && strcmp(STR(CHILD(n, NCH(n) - 3)), "else") == 0) {
         orelse = ast_from_node(CHILD(n, NCH(n) - 1));
         if(NULL == orelse) return NULL;
         n_elif = (NCH(n) - 7) / 4;
+        offset = 3;
     }else {
         n_elif = (NCH(n) - 4) / 4;
     }
@@ -1465,10 +1467,10 @@ ast_for_if_stmt(const node* n) {
         
         stmt_ty  elorelse = NULL;
         for(i = 0; i < n_elif; i ++ ) {
-            eltest = ast_for_expr(CHILD(n, NCH(n) - i * 4 - 6));         
+            eltest = ast_for_expr(CHILD(n, NCH(n) - i * 4 - (3 + offset)));         
             if(NULL == eltest) return NULL;
             
-            elbody = ast_from_node(CHILD(n, NCH(n) - i * 4 - 4));
+            elbody = ast_from_node(CHILD(n, NCH(n) - i * 4 - (1 + offset)));
             if(NULL == elbody) return NULL;
 
             elorelse= If_stmt(eltest, elbody, orelse, LINENO(n), n->n_col_offset); 
