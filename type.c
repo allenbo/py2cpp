@@ -193,6 +193,46 @@ assign_type_to_stmt(stmt_ty s) {
             }
             break;
         case For_kind:
+            assign_type_to_expr(s->forstmt.target);
+            assign_type_to_expr(s->forstmt.iter);
+            s->forstmt.target->e_type = s->forstmt.iter->e_type->base;
+            insert_to_current_table(s->forstmt.target->name.id,
+                    s->forstmt.target->e_type, SE_VARIABLE_KIND);
+            
+            if(s->forstmt.target->isplain)
+                stmt_for_expr(s->forstmt.target);
+            else
+                eliminate_python_unique_for_expr(s->forstmt.target);
+            if(s->forstmt.iter->isplain)
+                stmt_for_expr(s->forstmt.iter);
+            else
+                eliminate_python_unique_for_expr(s->forstmt.iter);
+            
+            
+            char* iter = newIterator();
+            indent_output();
+            fprintf(output, "int %s = 0;\n", iter);
+            indent_output();
+            fprintf(output, "for(%s %s : %s) {\n", s->forstmt.target->e_type->name,
+                    s->forstmt.target->addr, s->forstmt.iter->addr);
+            level ++;
+            assign_type_to_ast(s->forstmt.body);
+
+            indent_output();
+            fprintf(output, "%s ++;\n", iter);
+            level --;
+            indent_output();
+            fprintf(output, "}\n");
+            
+            if(s->forstmt.orelse != NULL) {
+                indent_output();
+                fprintf(output, "if(%s == %s.size()) {\n", iter, s->forstmt.iter->addr);
+                level++;
+                assign_type_to_ast(s->forstmt.orelse);
+                level--;
+                indent_output();
+                fprintf(output, "}\n");
+            }
             break;
         case While_kind:
             break;
@@ -203,20 +243,20 @@ assign_type_to_stmt(stmt_ty s) {
             else
                 eliminate_python_unique_for_expr(s->ifstmt.test);
             indent_output();
-            printf("if(%s) {\n", s->ifstmt.test->addr);
+            fprintf(output, "if(%s) {\n", s->ifstmt.test->addr);
             level ++;
             assign_type_to_ast(s->ifstmt.body);
             level --;
             indent_output();
-            printf("}\n");
+            fprintf(output, "}\n");
             if(s->ifstmt.orelse != NULL) {
                 indent_output();
-                printf("else {\n");
+                fprintf(output, "else {\n");
                 level++;
                 assign_type_to_ast(s->ifstmt.orelse);
                 level --;
                 indent_output();
-                printf("}\n");
+                fprintf(output, "}\n");
             }
             break;
         case With_kind:
