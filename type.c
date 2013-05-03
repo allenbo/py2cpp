@@ -235,6 +235,38 @@ assign_type_to_stmt(stmt_ty s) {
             }
             break;
         case While_kind:
+            {
+                assign_type_to_expr(s->whilestmt.test);
+                if(s->whilestmt.test->isplain)
+                    stmt_for_expr(s->whilestmt.test);
+                else
+                    eliminate_python_unique_for_expr(s->whilestmt.test);
+
+                char* iter = newIterator();
+                indent_output();
+                fprintf(output, "int %s = 1;\n", iter);
+                indent_output();
+                fprintf(output, "while( %s ) {\n", s->whilestmt.test->addr);
+                level ++;
+                indent_output();
+                fprintf(output, "%s = 0;\n", iter);
+                assign_type_to_ast(s->whilestmt.body);
+                indent_output();
+                fprintf(output, "%s = 1;\n", iter);
+                level --;
+                indent_output();
+                fprintf(output, "}\n");
+
+                if(s->whilestmt.orelse != NULL) {
+                    indent_output();
+                    fprintf(output, "if(%s == 1) {\n", iter);
+                    level ++;
+                    assign_type_to_ast(s->whilestmt.orelse);
+                    level --;
+                    indent_output();
+                    fprintf(output, "}\n");
+                }
+            }
             break;
         case If_kind:
             assign_type_to_expr(s->ifstmt.test);
