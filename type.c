@@ -307,6 +307,13 @@ assign_type_to_stmt(stmt_ty s) {
         case Try_kind:
             break;
         case Assert_kind:
+            assign_type_to_expr(s->assert.test);
+            if(s->assert.test->isplain)
+                stmt_for_expr(s->assert.test);
+            else
+                eliminate_python_unique_for_expr(s->assert.test);
+            indent_output();
+            fprintf(output, "assert(%s);\n", s->assert.test->addr);
             break;
         case Global_kind:
             break;
@@ -1056,10 +1063,6 @@ eliminate_python_unique_for_expr(expr_ty e) {
             {
                 int n = e->sub.n_slice;
                 int i;
-                /*
-                   for(i = 0; i < n; i ++ ) {
-
-                   }*/
                 if(n == 1 && e->sub.slices[0]->kind == Index_kind) {
                     if(e->sub.slices[0]->index.value->isplain)
                         stmt_for_expr(e->sub.slices[0]->index.value);

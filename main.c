@@ -21,7 +21,13 @@ int main() {
     int flag = 0;
     node *n = PyParser_ParseFileFlagsEx(fp, filename, &_PyParser_Grammar, Py_file_input, NULL, NULL, &err_ret, &flag);
     stmt_seq* ss = ast_from_node(n);
-    printf("#include <iostream>\n#include <vector>\n#include <algorithm>\n#include <cmath>\nusing namespace std;\n#include \"definition.h\"\n\n");
+    printf("#include <iostream>\n"
+            "#include <vector>\n"
+            "#include <algorithm>\n"
+            "#include <cassert>\n"
+            "#include <cmath>\n"
+            "using namespace std;\n"
+            "#include \"definition.h\"\n\n");
 
     fdef = fopen("definition.h", "w");
     fprintf(fdef, "template <class T, ostream& out>\nvoid output(T x) { out<< x << \", \";}\n\n");
