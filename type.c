@@ -358,6 +358,12 @@ assign_type_to_expr(expr_ty e) {
             }
             break;
         case UnaryOp_kind:
+            assign_type_to_expr(e->unaryop.operand);
+            if(e->unaryop.op == Not)
+                e->e_type = &t_boolean;
+            else
+                e->e_type = e->unaryop.operand->e_type;
+            e->isplain = 1;
             break;
         case Lambda_kind:
             break;
@@ -600,6 +606,15 @@ char* get_cmp_literal(compop_ty op) {
     }
 }
 
+char* get_unaryop_literal(unaryop_ty op) {
+    switch(op) {
+        case Invert: return "~";
+        case UAdd: return "+";
+        case USub: return "-";
+        case Not: return "!";
+    }
+}
+
 static void
 stmt_for_expr(expr_ty e) {
     if(e->isplain == 0) return ;
@@ -691,7 +706,7 @@ stmt_for_expr(expr_ty e) {
                         fprintf(output, "%s = %s %s %s;\n",e->addr, left, op, right);
 
                 }else {
-                    sprintf(e->addr, "%s %s %s", left, op, right);
+                    sprintf(e->addr, "(%s %s %s)", left, op, right);
                 }
             }
             break;
@@ -749,6 +764,18 @@ stmt_for_expr(expr_ty e) {
                 }
             }
             break;
+        case UnaryOp_kind:
+            stmt_for_expr(e->unaryop.operand);
+            if(e->addr[0]!= 0) {
+                if(search_type_for_name(e->addr) == NULL) {
+                    indent_output();
+                    fprintf(output, "%s ", e->e_type->name);
+                }
+                fprintf(output, "%s = %s%s;\n", e->addr, get_unaryop_literal(e->unaryop.op), e->unaryop.operand->addr);
+            }
+            else {
+                sprintf(e->addr, "%s%s", get_unaryop_literal(e->unaryop.op), e->unaryop.operand->addr);
+            }
     }
 }
 
@@ -1048,7 +1075,7 @@ eliminate_python_unique_for_expr(expr_ty e) {
                             sprintf(e->addr, "find(%s.begin(), %s.end(), %s) != %s.end()", p, p, prev, p);
                             break;
                         default:
-                            sprintf(e->addr, "%s %s %s", prev,
+                            sprintf(e->addr, "(%s %s %s)", prev,
                                     get_cmp_literal(e->compare.ops[i]), e->compare.comparators[i]->addr);
                             break;
                     }
@@ -1143,16 +1170,17 @@ eliminate_python_unique_for_expr(expr_ty e) {
                         strcpy(upper, s->slice.upper->addr);
                     }
                     else
-                        sprintf(s->slice.upper->addr, "%s.size()", e->sub.value->addr);
+                        sprintf(upper, "%s.size()", e->sub.value->addr);
 
-                    if(strcmp(s->slice.upper->addr, "-1") == 0) {
-                        sprintf(s->slice.upper->addr, "%s.size()", e->sub.value->addr);
+                    if(strcmp(upper, "-1") == 0) {
+                        sprintf(upper, "%s.size()", e->sub.value->addr);
                     }
                     if(s->slice.step) {
                         if(s->slice.step->isplain)
                             stmt_for_expr(s->slice.step);
                         else
                             eliminate_python_unique_for_expr(s->slice.step);
+                        strcpy(step, s->slice.step->addr);
                     }
                     else
                         strcpy(step, "1");
