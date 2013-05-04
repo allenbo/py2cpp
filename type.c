@@ -502,7 +502,6 @@ assign_type_to_expr(expr_ty e) {
                 }else {
                     e->e_type = tp;
                 }
-                strcpy(e->addr, e->name.id);
                 e->isplain = 1;
             }
             break;
@@ -648,6 +647,21 @@ stmt_for_expr(expr_ty e) {
                 }
             }
 
+            break;
+        case Name_kind:
+            if(e->addr[0] != 0) {
+                indent_output();
+                if(search_type_for_name(e->addr) == NULL)
+                    if(e->e_type->kind == LIST_KIND)
+                        fprintf(output, "%s &%s = %s;\n", e->e_type->name, e->addr, e->name.id);
+                    else
+                        fprintf(output, "%s %s = %s;\n", e->e_type->name, e->addr, e->name.id);
+                else
+                    fprintf(output, "%s = %s;\n", e->addr, e->name.id);
+            }
+            else {
+                strcpy(e->addr, e->name.id);
+            }
             break;
         case Str_kind:
             if(e->addr[0] != 0) {
@@ -926,6 +940,10 @@ eliminate_python_unique_for_expr(expr_ty e) {
         case ListComp_kind:
             {
                 indent_output();
+                if(e->listcomp.elt->isplain)
+                    stmt_for_expr(e->listcomp.elt);
+                else
+                    eliminate_python_unique_for_expr(e->listcomp.elt);
                 if(search_type_for_name(e->addr) == NULL) {
                     fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
                 }else {

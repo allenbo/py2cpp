@@ -30,9 +30,13 @@ int main() {
             "#include \"definition.h\"\n\n");
 
     fdef = fopen("definition.h", "w");
-    fprintf(fdef, "template <class T, ostream& out>\nvoid output(T x) { out<< x << \", \";}\n\n");
+    fprintf(fdef, "template <class T, ostream& out>\n"
+            "void output(T x) { out<< x << \", \";}\n\n");
+
     printf("int main(int argc, char** argv) {\n");
+
     assign_type_to_ast(ss);
+    
     printf("\treturn 0;\n}");
     //PyNode_Free(n);
     fclose(fp);
