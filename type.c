@@ -335,6 +335,15 @@ assign_type_to_expr(expr_ty e) {
     int i;
     switch(e->kind) {
         case BoolOp_kind:
+            {
+                int i, n = e->boolop.n_value;
+                e->isplain = 1;
+                for(i = 0; i < n; i ++ )  {
+                    assign_type_to_expr(e->boolop.values[i]);
+                    e->isplain &= e->boolop.values[i]->isplain;
+                }
+                e->e_type = e->boolop.values[0]->e_type;
+            }
             break;
         case BinOp_kind:
             assign_type_to_expr(e->binop.left);
@@ -369,10 +378,6 @@ assign_type_to_expr(expr_ty e) {
             break;
         case IfExp_kind:
             break;
-        case Dict_kind:
-            break;
-        case Set_kind:
-            break;
         case ListComp_kind:
             e->isplain = 0;
             for(i = 0; i < e->listcomp.n_com; i ++ ) {
@@ -380,6 +385,10 @@ assign_type_to_expr(expr_ty e) {
             }
             assign_type_to_expr(e->listcomp.elt);
             e->e_type = create_list_type(e->listcomp.elt->e_type);
+            break;
+        case Dict_kind:
+            break;
+        case Set_kind:
             break;
         case SetComp_kind:
             break;
@@ -619,6 +628,49 @@ static void
 stmt_for_expr(expr_ty e) {
     if(e->isplain == 0) return ;
     switch(e->kind) {
+        case BoolOp_kind:
+            {
+                /* x = a and b or c not supported*/
+                /*
+                int i, n = e->boolop.n_value;
+                if(e->addr[0] != 0) {
+                    indent_output();
+                    if(search_type_for_name(e->addr) == NULL)
+                        fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
+                    indent_output();
+                    for(i = 0; i < n; i ++ ) {
+                        expr_ty te = e->boolop.values[i];
+                        if(te->kind == BoolOp_kind) {
+                            strcpy(te->addr, e->addr);
+                        }
+                        stmt_for_expr(te);
+                        fprintf(output, "if(%s = %s) ", e->addr, te->addr);
+                        if(e->boolop.op == Or && i != n - 1)
+                            fprintf(output, "; else { ");
+                    }
+                    if(e->boolop.op == Or) {
+                        for(i = 0; i < n -1; i ++ )
+                            if(i == 0) fprintf(output, "; ");
+                            fprintf(output, "} ");
+                        fprintf(output, "\n");
+                    }else
+                        fprintf(output, ";\n");
+                }else {
+                }
+                */
+
+                int i, n = e->boolop.n_value;
+                char* op = e->boolop.op == And ? " && ": " || ";
+                for(i = 0; i < n; i ++) {
+                    expr_ty te = e->boolop.values[i];
+                    stmt_for_expr(te);
+                    strcat(e->addr, te->addr);
+                    if(n-1 != i) {
+                        strcat(e->addr, op);
+                    }
+                }
+            }
+            break;
         case BinOp_kind:
             {
                 expr_ty l = e->binop.left;
@@ -785,6 +837,23 @@ eliminate_python_unique_for_expr(expr_ty e) {
     if(e->isplain) return ;
     int i;
     switch(e->kind) {
+        case BoolOp_kind:
+            {
+                int i, n = e->boolop.n_value;
+                char* op = e->boolop.op == And ? " && ": " || ";
+                for(i = 0; i < n;i ++) {
+                    expr_ty te = e->boolop.values[i];
+                    if(te->isplain)
+                        stmt_for_expr(te);
+                    else
+                        eliminate_python_unique_for_expr(te);
+                    strcat(e->addr, te->addr);
+                    if(n-1 != i) {
+                        strcat(e->addr, op);
+                    }
+                }
+            }
+            break;
         case BinOp_kind:
             {
                 expr_ty l = e->binop.left;
