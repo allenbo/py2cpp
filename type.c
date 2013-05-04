@@ -385,6 +385,7 @@ assign_type_to_expr(expr_ty e) {
             break;
         case Compare_kind:
             assign_type_to_expr(e->compare.left);
+            e->isplain = e->compare.left->isplain;
             for(i = 0; i< e->compare.n_comparator; i ++ ) {
                 assign_type_to_expr(e->compare.comparators[i]);
                 switch(e->compare.ops[i]) {
@@ -394,7 +395,7 @@ assign_type_to_expr(expr_ty e) {
                     case NotIn:
                         e->isplain = 0;break;
                     default:
-                        e->isplain = 1;break;
+                        e->isplain = e->isplain && e->compare.comparators[i]->isplain;break;
                 }
             }
             e->e_type = &t_boolean;
@@ -1103,26 +1104,40 @@ eliminate_python_unique_for_expr(expr_ty e) {
 
                 }else if(n == 1 && e->sub.slices[0]->kind == Slice_kind) {
                     slice_ty s = e->sub.slices[0];
-                    if(s->slice.lower)
+                    char lower[100] = "";
+                    char upper[100] = "";
+                    char step[100] = "";
+                    if(s->slice.lower) {
                         if(s->slice.lower->isplain)
                             stmt_for_expr(s->slice.lower);
                         else
                             eliminate_python_unique_for_expr(s->slice.lower);
+                        strcpy(lower, s->slice.lower->addr);
+                    }
+                    else
+                        strcpy(lower,"0");
 
-                    if(s->slice.upper)
+                    if(s->slice.upper) {
                         if(s->slice.upper->isplain)
                             stmt_for_expr(s->slice.upper);
                         else
                             eliminate_python_unique_for_expr(s->slice.upper);
+                        strcpy(upper, s->slice.upper->addr);
+                    }
+                    else
+                        sprintf(s->slice.upper->addr, "%s.size()", e->sub.value->addr);
 
                     if(strcmp(s->slice.upper->addr, "-1") == 0) {
                         sprintf(s->slice.upper->addr, "%s.size()", e->sub.value->addr);
                     }
-                    if(s->slice.step)
+                    if(s->slice.step) {
                         if(s->slice.step->isplain)
                             stmt_for_expr(s->slice.step);
                         else
                             eliminate_python_unique_for_expr(s->slice.step);
+                    }
+                    else
+                        strcpy(step, "1");
 
                     if(e->addr[0] == 0) {
                         strcpy(e->addr, newTemp());
@@ -1135,8 +1150,7 @@ eliminate_python_unique_for_expr(expr_ty e) {
                     indent_output();
                     char* iter = newIterator();
                     fprintf(output, "for(int %s = %s; %s < %s; %s += %s)\n",
-                            iter, s->slice.lower->addr, iter, s->slice.upper->addr,
-                            iter, s->slice.step->addr);
+                            iter, lower, iter, upper,iter, step);
                     level ++;
                     indent_output();
                     fprintf(output, "%s.push_back(%s[%s]);\n", e->addr,
