@@ -18,7 +18,16 @@ char* newTemp() {
 int level = 1;
 
 static type_ty func_ret = NULL;
-extern FILE* fdef;
+static FILE* fdef[1000];
+int fd = 0;
+
+void push_fd(FILE* f) {
+    fdef[fd++] = f;
+}
+FILE* pop_fd() {
+    return fdef[--fd];
+}
+
 FILE* output = NULL;
 
 
@@ -756,7 +765,7 @@ stmt_for_expr(expr_ty e) {
 
             break;
         case Name_kind:
-            if(e->addr[0] != 0) {
+            if(e->addr[0] != 0 && strcmp(e->addr, e->name.id) != 0) {
                 indent_output();
                 if(search_type_for_name(e->addr) == NULL)
                     if(e->e_type->kind == LIST_KIND)
@@ -1360,7 +1369,8 @@ eliminate_python_unique_for_stmt(stmt_ty s) {
         case FuncDef_kind:
             {
                 enter_new_scope_for_func();
-                output = fdef;
+                push_fd(output);
+                output = fopen(s->funcdef.fullname, "w");
                 fprintf(output, "%s(", s->funcdef.fullname);
                 int n = s->funcdef.args->n_param;
                 int i;
@@ -1380,7 +1390,8 @@ eliminate_python_unique_for_stmt(stmt_ty s) {
                 exit_scope_from_func();
 
                 fprintf(output, "%s\n", func_ret->name);
-                output = stdout;
+                fclose(output);
+                output = pop_fd();
             }
             break;
     }
