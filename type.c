@@ -145,20 +145,34 @@ assign_type_to_stmt(stmt_ty s) {
                 expr_ty * targets = s->assign.targets;
                 expr_ty value = s->assign.value;
                 assign_type_to_expr(value);
-                strcpy(value->addr, targets[0]->name.id);
+                assign_type_to_expr(targets[0]);
+
+                if(targets[0]->isplain)
+                    stmt_for_expr(targets[0]);
+                else
+                    eliminate_python_unique_for_expr(targets[0]);
+
+
+                strcpy(value->addr, targets[0]->addr);
 
                 if(value->isplain)
                     stmt_for_expr(value);
                 else
                     eliminate_python_unique_for_expr(value);
 
-                insert_to_current_table(targets[0]->name.id,
-                        value->e_type, SE_VARIABLE_KIND);
+                if(targets[0]->kind == Name_kind)
+                    insert_to_current_table(targets[0]->name.id,
+                            value->e_type, SE_VARIABLE_KIND);
                 int i ;
                 for(i= 1; i < n_target; i ++ ){
                     assign_type_to_expr(targets[i]);
-                    insert_to_current_table(targets[i]->name.id,
+                    if(targets[i]->kind == Name_kind)
+                        insert_to_current_table(targets[i]->name.id,
                             value->e_type, SE_VARIABLE_KIND);
+                    if(targets[i]->isplain)
+                        stmt_for_expr(targets[i]);
+                    else
+                        eliminate_python_unique_for_expr(targets[i]);
 
                     indent_output();
                     switch(value->e_type->kind) {
@@ -166,11 +180,18 @@ assign_type_to_stmt(stmt_ty s) {
                         case FLOAT_KIND:
                         case STRING_KIND:
                         case BOOLEAN_KIND:
-                            fprintf(output, "%s %s = %s;\n", value->e_type->name, targets[i]->addr, value->addr);
+                            if(search_type_for_name(targets[i]->addr) == NULL)
+                                fprintf(output, "%s %s = %s;\n", value->e_type->name, targets[i]->addr, value->addr);
+                            else
+                                fprintf(output, "%s = %s;\n",  targets[i]->addr, value->addr);
                             break;
                         case LIST_KIND:
-                            fprintf(output, "%s & %s = %s;\n", value->e_type->name,
+                            if(search_type_for_name(targets[i]->addr) == NULL)
+                                fprintf(output, "%s & %s = %s;\n", value->e_type->name,
                                     targets[i]->addr, value->addr);
+                            else
+                                fprintf(output, "%s = %s;\n", targets[i]->addr, value->addr);
+
                             break;
                     }
                 }

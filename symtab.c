@@ -30,7 +30,7 @@ create_symtab_entry(char* name, type_ty tp, enum symtab_entry_kind kind, symtab_
     return se;
 }
 
-static symtab_ty 
+static symtab_ty
 create_symtab(symtab_ty p) {
     symtab_ty st  = (symtab_ty) malloc (sizeof(struct symtab));
     memset(st, 0, sizeof(struct symtab));
@@ -58,7 +58,10 @@ search_type_for_name(char* name) {
         cur_table = global_table;
         return NULL;
     }
-
+    char* p = name;
+    if((p = strchr(name, '[') ) != NULL) {
+        return (type_ty)1;
+    }
     int i;
     symtab_ty st = cur_table;
     while(st) {
