@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "Python-ast.h"
 
 char* newTemp() {
     static int i = 0;
@@ -179,15 +180,20 @@ assign_type_to_stmt(stmt_ty s) {
             {
                 expr_ty value = s->augassignstmt.value;
                 expr_ty target = s->augassignstmt.target;
-                assign_type_to_expr(value);
-                assign_type_to_expr(target);
-                value->aug = 1;
-                strcpy(value->addr, target->name.id);
-                strcpy(value->augop, get_op_literal(s->augassignstmt.op));
-                if(value->isplain)
-                    stmt_for_expr(value);
-                else
-                    eliminate_python_unique_for_expr(value);
+                operator_ty op = s->augassignstmt.op;
+
+                expr_ty* targets = (expr_ty*) malloc (sizeof(expr_ty));
+                targets[0] = target;
+                expr_ty v = (expr_ty) malloc(sizeof(struct _expr));
+                v->kind = BinOp_kind;
+                v->binop.op = op;
+                v->binop.left= (expr_ty) malloc (sizeof(struct _expr));
+                memcpy(v->binop.left, target, sizeof(struct _expr));
+                v->binop.right = value;
+                stmt_ty tmp = Assign_stmt(1, targets, v, value->lineno, value->col_offset);
+
+                assign_type_to_stmt(tmp);
+
             }
             break;
         case Print_kind:
