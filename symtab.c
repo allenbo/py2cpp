@@ -8,6 +8,18 @@ static symtab_ty global_table = NULL;
 static symtab_ty cur_table = NULL;
 static symtab_ty func_table = NULL;
 
+static symtab_ty tables[1000];
+int tind = 0;
+
+
+void push_table(symtab_ty s) {
+    tables[tind ++ ] = s;
+}
+symtab_ty pop_table() {
+    return tables[--tind];
+}
+
+
 static symtab_entry_ty
 create_incomplete_func_symtab_entry(char* name, stmt_ty s, symtab_ty t) {
     symtab_entry_ty se = (symtab_entry_ty) malloc( sizeof(struct symtab_entry));
@@ -155,12 +167,11 @@ enter_new_scope_for_func() {
                 sizeof(symtab_ty) * func_table->child_capacity) ;
     }
     func_table->st_children[func_table->n_child ++ ] = create_symtab(func_table);
-    symtab_ty tmp = cur_table;
+    push_table(cur_table);
     cur_table = func_table->st_children[func_table->n_child - 1];
-    func_table = tmp;
 }
 
 void
 exit_scope_from_func() {
-    cur_table = func_table;
+    cur_table = pop_table();
 }

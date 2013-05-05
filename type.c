@@ -1370,7 +1370,9 @@ eliminate_python_unique_for_stmt(stmt_ty s) {
             {
                 enter_new_scope_for_func();
                 push_fd(output);
-                output = fopen(s->funcdef.fullname, "w");
+                char filename[128];
+                sprintf(filename, "funcs/%s", s->funcdef.fullname);
+                output = fopen(filename, "w");
                 fprintf(output, "%s(", s->funcdef.fullname);
                 int n = s->funcdef.args->n_param;
                 int i;
