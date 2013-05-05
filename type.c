@@ -58,6 +58,41 @@ create_list_type(type_ty t) {
     return tp;
 }
 
+char* get_op_literal(operator_ty op) {
+    switch(op) {
+        case Add: return "+";
+        case Sub: return "-";
+        case Mult: return "*";
+        case Div:  return "/";
+        case Mod:  return "\%";
+        case LShift: return "<<";
+        case RShift: return ">>";
+        case BitOr:  return "|";
+        case BitXor:return "^";
+        case BitAnd:  return "&";
+    }
+}
+
+
+char* get_cmp_literal(compop_ty op) {
+    switch(op) {
+        case Eq: return "==";
+        case NotEq: return "!=";
+        case Lt: return "<";
+        case LtE: return "<=";
+        case Gt: return ">";
+        case GtE: return ">=";
+    }
+}
+
+char* get_unaryop_literal(unaryop_ty op) {
+    switch(op) {
+        case Invert: return "~";
+        case UAdd: return "+";
+        case USub: return "-";
+        case Not: return "!";
+    }
+}
 
 static int
 type_compare(type_ty t1, type_ty t2) {
@@ -141,6 +176,19 @@ assign_type_to_stmt(stmt_ty s) {
             }
             break;
         case AugAssign_kind:
+            {
+                expr_ty value = s->augassignstmt->value;
+                expr_ty target = s->augassignstmt->target;
+                assign_type_to_expr(value);
+                assign_type_to_expr(target);
+                value->aug = 1;
+                strcpy(value->addr, target->name.id);
+                strcpy(value->augop, get_op_literal(s->augassignstmt->op));
+                if(value->isplain)
+                    stmt_for_expr(value);
+                else
+                    eliminate_python_unique_for_expr(value);
+            }
             break;
         case Print_kind:
             {
@@ -588,41 +636,6 @@ assign_type_to_ast(stmt_seq* ss) {
 }
 
 
-char* get_op_literal(operator_ty op) {
-    switch(op) {
-        case Add: return "+";
-        case Sub: return "-";
-        case Mult: return "*";
-        case Div:  return "/";
-        case Mod:  return "\%";
-        case LShift: return "<<";
-        case RShift: return ">>";
-        case BitOr:  return "|";
-        case BitXor:return "^";
-        case BitAnd:  return "&";
-    }
-}
-
-
-char* get_cmp_literal(compop_ty op) {
-    switch(op) {
-        case Eq: return "==";
-        case NotEq: return "!=";
-        case Lt: return "<";
-        case LtE: return "<=";
-        case Gt: return ">";
-        case GtE: return ">=";
-    }
-}
-
-char* get_unaryop_literal(unaryop_ty op) {
-    switch(op) {
-        case Invert: return "~";
-        case UAdd: return "+";
-        case USub: return "-";
-        case Not: return "!";
-    }
-}
 
 static void
 stmt_for_expr(expr_ty e) {

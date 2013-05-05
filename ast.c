@@ -105,28 +105,40 @@ get_operator(const node* n) {
     const node * ch = n;
     switch(TYPE(ch)) {
         case PLUS:
+        case PLUSEQUAL:
             return Add;
         case MINUS:
+        case MINEQUAL:
             return Sub;
         case STAR:
+        case STAREQUAL:
             return Mult;
         case SLASH:
+        case SLASHEQUAL:
             return Div;
         case PERCENT:
+        case PERCENTEQUAL:
             return Mod;
         case DOUBLESTAR:
+        case DOUBLESTAREQUAL:
             return Pow;
         case LEFTSHIFT:
+        case LEFTSHIFTEQUAL:
             return LShift;
         case RIGHTSHIFT:
+        case RIGHTSHIFTEQUAL:
             return RShift;
         case VBAR:
+        case VBAREQUAL:
             return BitOr;
         case AMPER:
+        case AMPEREQUAL:
             return BitXor;
         case CIRCUMFLEX:
+        case CIRCUMFLEXEQUAL:
             return BitAnd;
         case DOUBLESLASH:
+        case DOUBLESLASHEQUAL:
             return FloorDiv;
         default:
             return 0;
@@ -354,7 +366,7 @@ ast_for_expr_stmt(const node* n) {
             return NULL;
         }
 
-        op = get_operator(CHILD(n, 1));
+        op = get_operator(CHILD(CHILD(n, 1), 0));
         ch = CHILD(n, 2);
         if(TYPE(ch) == testlist) 
             value = ast_for_testlist(ch);

@@ -402,6 +402,8 @@ struct _expr {
     type_ty e_type;
     char addr[100];
     int isplain;
+    int aug;
+    char augop[10];
     int lineno;
     int col_offset;
 };
