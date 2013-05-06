@@ -33,6 +33,8 @@ int main() {
     fprintf(fdef, "template <class T, ostream& out>\n"
             "void output(T x) { out<< x << \", \";}\n\n");
 
+    fclose(fdef);
+
     printf("int main(int argc, char** argv) {\n");
 
     assign_type_to_ast(ss);
@@ -40,6 +42,5 @@ int main() {
     printf("\treturn 0;\n}");
     //PyNode_Free(n);
     fclose(fp);
-    fclose(fdef);
     return 0;
 }

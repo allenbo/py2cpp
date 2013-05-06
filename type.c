@@ -1402,31 +1402,54 @@ eliminate_python_unique_for_stmt(stmt_ty s) {
             {
                 enter_new_scope_for_func();
                 push_fd(output);
+
                 char filename[128];
                 sprintf(filename, "funcs/%s", s->funcdef.fullname);
                 output = fopen(filename, "w");
-                fprintf(output, "%s(", s->funcdef.fullname);
+
+                char funcsig[128];
+                sprintf(funcsig, "%s(", s->funcdef.fullname);
+
                 int n = s->funcdef.args->n_param;
                 int i;
                 for(i = 0; i < n; i ++ ) {
                     char* name = s->funcdef.args->params[i]->args->name.id;
                     type_ty tp = s->funcdef.args->params[i]->args->e_type;
                     insert_to_current_table(name, tp, SE_VARIABLE_KIND);
-                    fprintf(output, "%s %s", tp->name, name);
+                    if(tp->kind == LIST_KIND)
+                        sprintf(funcsig + strlen(funcsig), "%s & %s", tp->name, name);
+                    else
+                        sprintf(funcsig + strlen(funcsig), "%s %s", tp->name, name);
                     if(i != n-1) {
-                        fprintf(output, ", ");
+                        sprintf(funcsig + strlen(funcsig), ", ");
                     }
                 }
-                fprintf(output, ") {\n");
+
+                sprintf(funcsig + strlen(funcsig), ")");
+                fprintf(output, "%s {\n", funcsig);
+
                 assign_type_to_ast(s->funcdef.body);
+
                 fprintf(output, "}\n");
 
                 exit_scope_from_func();
 
-                fprintf(output, "%s\n", func_ret->name);
                 fclose(output);
                 output = pop_fd();
                 erase_addr_for_stmt(s);
+
+                FILE* fdef = fopen("definition.h", "a");
+                FILE* fin = fopen(filename, "r");
+
+                fprintf(fdef, "%s\n", func_ret->name);
+
+                char code[1024];
+                while(fgets(code, 1023, fin) != NULL) {
+                    fputs(code, fdef);
+                }
+                fputc('\n', fdef);
+                fclose(fdef);
+                fclose(fin);
             }
             break;
     }
