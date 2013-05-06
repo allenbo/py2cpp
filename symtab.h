@@ -69,6 +69,7 @@ void assign_type_to_ast(stmt_seq* ss);
 
 
 int insert_to_current_table(char *name, type_ty t, enum symtab_entry_kind kind);
+int insert_to_func_table(char *name, type_ty t, enum symtab_entry_kind kind);
 int insert_incomplete_func_to_table(char* name, stmt_ty node);
 type_ty search_type_for_name(char* name);
 stmt_ty search_stmt_for_name(char* name);

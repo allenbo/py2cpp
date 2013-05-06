@@ -533,7 +533,7 @@ assign_type_to_expr(expr_ty e) {
                 type_ty tp = search_type_for_name(fullname);
                 if(tp == NULL) {
                     stmt_ty st = search_stmt_for_name(e->call.func->name.id);
-                    insert_to_current_table(fullname, &t_unknown, SE_FUNCTION_KIND);
+                    insert_to_func_table(fullname, &t_unknown, SE_FUNCTION_KIND);
                     strcpy(st->funcdef.fullname, fullname);
                     push_type_to_arguments(st, e);
                     eliminate_python_unique_for_stmt(st);
@@ -747,8 +747,7 @@ stmt_for_expr(expr_ty e) {
                     fprintf(output, "%s %s = ", e->e_type->name, e->addr);
                 else
                     fprintf(output, "%s = ", e->addr);
-
-                if(e->num.kind == INTEGER)  {
+                if(e->num.kind == INTEGER) {
                     fprintf(output, "%d;\n", e->num.ivalue);
                 }
                 else {
@@ -809,6 +808,8 @@ stmt_for_expr(expr_ty e) {
                 }else {
                     sprintf(e->addr, "(%s %s %s)", left, op, right);
                 }
+                e->compare.left->addr[0] = 0;
+                e->compare.comparators[0]->addr[0] = 0;
             }
             break;
         case Call_kind:

@@ -138,6 +138,22 @@ insert_to_current_table(char* name, type_ty tp, enum symtab_entry_kind kind) {
 }
 
 
+int
+insert_to_func_table(char* name, type_ty tp, enum symtab_entry_kind kind) {
+    if(global_table == NULL) {
+        global_table = create_symtab(NULL);
+        cur_table = global_table;
+    }
+    push_table(cur_table);
+    cur_table = func_table;
+    if(cur_table->st_size == cur_table->st_capacity) {
+        expand_cur_table_for_entry();
+    }
+    cur_table->st_symbols[cur_table->st_size ++ ] = create_symtab_entry(name, tp, kind, cur_table);
+    cur_table = pop_table();
+    return 1;
+}
+
 
 int
 insert_incomplete_func_to_table(char* name, stmt_ty node) {
