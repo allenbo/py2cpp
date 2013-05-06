@@ -48,7 +48,8 @@ static type_ty max_type(type_ty t1, type_ty t2);
 static void stmt_for_expr(expr_ty e);
 static void eliminate_python_unique_for_expr(expr_ty e);
 static void eliminate_python_unique_for_stmt(stmt_ty s);
-
+static void erase_addr_for_expr(expr_ty e);
+static void erase_addr_for_stmt(stmt_ty s);
 
 void indent_output() {
     int i ;
@@ -144,7 +145,8 @@ assign_type_to_stmt(stmt_ty s) {
             indent_output();
             fprintf(output, "return %s;\n", s->ret.value->addr);
             func_ret = s->ret.value->e_type;
-            strcpy(s->ret.value->addr, "");
+
+            erase_addr_for_stmt(s);
             break;
         case Delete_kind:
             break;
@@ -204,6 +206,7 @@ assign_type_to_stmt(stmt_ty s) {
                             break;
                     }
                 }
+                erase_addr_for_stmt(s);
             }
             break;
         case AugAssign_kind:
@@ -224,6 +227,7 @@ assign_type_to_stmt(stmt_ty s) {
 
                 assign_type_to_stmt(tmp);
 
+                erase_addr_for_stmt(s);
             }
             break;
         case Print_kind:
@@ -282,7 +286,7 @@ assign_type_to_stmt(stmt_ty s) {
                 }else {
                     fprintf(output, ";\n");
                 }
-
+                erase_addr_for_stmt(s);
             }
             break;
         case For_kind:
@@ -326,6 +330,7 @@ assign_type_to_stmt(stmt_ty s) {
                 indent_output();
                 fprintf(output, "}\n");
             }
+            erase_addr_for_stmt(s);
             break;
         case While_kind:
             {
@@ -359,6 +364,7 @@ assign_type_to_stmt(stmt_ty s) {
                     indent_output();
                     fprintf(output, "}\n");
                 }
+                erase_addr_for_stmt(s);
             }
             break;
         case If_kind:
@@ -383,6 +389,7 @@ assign_type_to_stmt(stmt_ty s) {
                 indent_output();
                 fprintf(output, "}\n");
             }
+            erase_addr_for_stmt(s);
             break;
         case With_kind:
             break;
@@ -398,6 +405,7 @@ assign_type_to_stmt(stmt_ty s) {
                 eliminate_python_unique_for_expr(s->assert.test);
             indent_output();
             fprintf(output, "assert(%s);\n", s->assert.test->addr);
+            erase_addr_for_stmt(s);
             break;
         case Global_kind:
             break;
@@ -409,6 +417,7 @@ assign_type_to_stmt(stmt_ty s) {
             else {
                 eliminate_python_unique_for_expr(s->exprstmt.value);
             }
+            erase_addr_for_stmt(s);
             break;
     }
 }
@@ -718,6 +727,7 @@ stmt_for_expr(expr_ty e) {
                         strcat(e->addr, op);
                     }
                 }
+                erase_addr_for_expr(e);
             }
             break;
         case BinOp_kind:
@@ -738,6 +748,7 @@ stmt_for_expr(expr_ty e) {
                 }else {
                     sprintf(e->addr, "(%s %s %s)", l->addr, oper, r->addr);
                 }
+                erase_addr_for_expr(e);
             }
             break;
         case Num_kind:
@@ -810,6 +821,7 @@ stmt_for_expr(expr_ty e) {
                 }
                 e->compare.left->addr[0] = 0;
                 e->compare.comparators[0]->addr[0] = 0;
+                erase_addr_for_expr(e);
             }
             break;
         case Call_kind:
@@ -837,6 +849,7 @@ stmt_for_expr(expr_ty e) {
                 }
                 strcat(e->addr, ") ");
             }
+            //erase_addr_for_expr(e);
             break;
         case Subscript_kind:
             {
@@ -864,6 +877,7 @@ stmt_for_expr(expr_ty e) {
                         sprintf(e->addr + strlen(e->addr), "[%s]", e->sub.slices[i]->index.value->addr);
                     }
                 }
+                erase_addr_for_expr(e);
             }
             break;
         case UnaryOp_kind:
@@ -878,6 +892,8 @@ stmt_for_expr(expr_ty e) {
             else {
                 sprintf(e->addr, "%s%s", get_unaryop_literal(e->unaryop.op), e->unaryop.operand->addr);
             }
+            erase_addr_for_expr(e);
+            break;
     }
 }
 
@@ -902,6 +918,7 @@ eliminate_python_unique_for_expr(expr_ty e) {
                         strcat(e->addr, op);
                     }
                 }
+                erase_addr_for_expr(e);
             }
             break;
         case BinOp_kind:
@@ -1088,6 +1105,7 @@ eliminate_python_unique_for_expr(expr_ty e) {
 
                     }
                 }
+                erase_addr_for_expr(e);
             }
             break;
         case List_kind:
@@ -1118,6 +1136,7 @@ eliminate_python_unique_for_expr(expr_ty e) {
                 fprintf(output, "%s.push_back(%s);\n", e->addr, e->list.elts[i]->addr);
             }
             fprintf(output, "\n");
+            erase_addr_for_expr(e);
             break;
         case ListComp_kind:
             {
@@ -1165,6 +1184,7 @@ eliminate_python_unique_for_expr(expr_ty e) {
                 indent_output();
                 fprintf(output, "%s.push_back(%s);\n", e->addr, e->listcomp.elt->addr);
                 level = oldlevel;
+                erase_addr_for_expr(e);
             }
             break;
         case Compare_kind:
@@ -1238,6 +1258,7 @@ eliminate_python_unique_for_expr(expr_ty e) {
                         strcat(e->addr, " && ");
                     }
                 }
+                erase_addr_for_expr(e);
             }
             break;
         case Call_kind:
@@ -1276,6 +1297,7 @@ eliminate_python_unique_for_expr(expr_ty e) {
                 }
                 strcat(e->addr, ") ");
             }
+            erase_addr_for_expr(e);
             break;
         case Subscript_kind:
             if(e->sub.value->isplain)
@@ -1360,6 +1382,7 @@ eliminate_python_unique_for_expr(expr_ty e) {
                     free(iter);
                 }
             }
+            erase_addr_for_expr(e);
             break;
     }
 }
@@ -1395,7 +1418,164 @@ eliminate_python_unique_for_stmt(stmt_ty s) {
                 fprintf(output, "%s\n", func_ret->name);
                 fclose(output);
                 output = pop_fd();
+                erase_addr_for_stmt(s);
             }
+            break;
+    }
+}
+
+static void
+erase_addr_for_expr(expr_ty e) {
+    int i = 0;
+    switch(e->kind) {
+        case BoolOp_kind:
+            for(i = 0; i < e->boolop.n_value; i ++ ) {
+                e->boolop.values[i]->addr[0] =0;
+            }
+            break;
+        case BinOp_kind:
+            e->binop.left->addr[0] = 0;
+            e->binop.right->addr[0] = 0;
+            break;
+        case UnaryOp_kind:
+            e->unaryop.operand->addr[0] = 0;
+            break;
+        case Lambda_kind:
+            break;
+        case IfExp_kind:
+            break;
+        case Dict_kind:
+            break;
+        case Set_kind:
+            break;
+        case ListComp_kind:
+            e->listcomp.elt->addr[0] = 0;
+            for(i = 0; i < e->listcomp.n_com; i ++ ) {
+                comprehension_ty com = e->listcomp.generators[i];
+                com->target->addr[0] = 0;
+                com->iter->addr[0] = 0;
+                int j;
+                for(j = 0; j < com->n_test; j ++ ) {
+                    com->tests[j]->addr[0] = 0;
+                }
+            }
+            break;
+        case SetComp_kind:
+            break;
+        case  DictComp_kind:
+            break;
+        case GeneratorExp_kind:
+            break;
+        case Yield_kind:
+            break;
+        case Compare_kind:
+            e->compare.left->addr[0] = 0;
+            for(i = 0; i < e->compare.n_comparator; i ++ ) {
+                e->compare.comparators[i]->addr[0] = 0;
+            }
+            break;
+        case Repr_kind:
+            break;
+        case Attribute_kind:
+            e->attribute.value->addr[0] = 0;
+            break;
+        case Subscript_kind:
+            e->sub.value->addr[0] = 0;
+            for(i = 0; i < e->sub.n_slice; i ++ ) {
+                slice_ty s = e->sub.slices[i];
+                if(s->kind == Slice_kind) {
+                    if(s->slice.lower)
+                        s->slice.lower->addr[0] = 0;
+                    if(s->slice.upper)
+                        s->slice.upper->addr[0] = 0;
+                    if(s->slice.step)
+                        s->slice.step->addr[0] = 0;
+                }else {
+                    s->index.value->addr[0] = 0;
+                }
+            }
+            break;
+        case Call_kind:
+            e->call.func->addr[0] = 0;
+            for(i = 0; i < e->call.n_arg; i ++ ) {
+                e->call.args[i].value->addr[0] = 0;
+            }
+            if(e->call.varg)
+                e->call.varg->addr[0] = 0;
+            if(e->call.karg)
+                e->call.karg->addr[0] = 0;
+            break;
+        case List_kind:
+            for(i = 0; i < e->list.n_elt; i ++ ) {
+                e->list.elts[i]->addr[0] = 0;
+            }
+            break;
+        case Tuple_kind:
+            break;
+    }
+}
+
+
+static void
+erase_addr_for_stmt(stmt_ty s) {
+    int i;
+    switch(s->kind) {
+        case FuncDef_kind:
+            break;
+        case ClassDef_kind:
+            break;
+        case Return_kind:
+            s->ret.value->addr[0] = 0;
+            break;
+        case Delete_kind:
+            for(i = 0 ; i < s->del.n_target; i ++ ) {
+                s->del.targets[0]->addr[0] = 0;
+            }
+            break;
+        case Assign_kind:
+            s->assign.value->addr[0] = 0;
+            for(i = 0; i < s->assign.n_target; i ++ ) {
+                s->assign.targets[0]->addr[0] = 0;
+            }
+            break;
+        case AugAssign_kind:
+            s->augassignstmt.value->addr[0] = 0;
+            s->augassignstmt.target->addr[0] = 0;
+            break;
+        case Print_kind:
+            if(s->print.dest)
+                s->print.dest->addr[0] = 0;
+            for(i = 0; i < s->print.n_value; i ++ ) {
+                s->print.values[i]->addr[0] = 0;
+            }
+            break;
+        case For_kind:
+            s->forstmt.target->addr[0] = 0;
+            s->forstmt.iter->addr[0] = 0;
+            break;
+        case While_kind:
+            s->whilestmt.test->addr[0] =0;
+            break;
+        case If_kind:
+            s->ifstmt.test->addr[0] = 0;
+            break;
+        case With_kind:
+            break;
+        case Raise_kind:
+            break;
+        case Try_kind:
+            break;
+        case Assert_kind:
+            s->assert.test->addr[0];
+            break;
+        case Import_kind:
+            break;
+        case ImportFrom_kind:
+            break;
+        case Global_kind:
+            break;
+        case Expr_kind:
+            s->exprstmt.value->addr[0] = 0;
             break;
     }
 }
