@@ -752,27 +752,31 @@ stmt_for_expr(expr_ty e) {
             }
             break;
         case Num_kind:
-            if(e->addr[0] != 0) {
-                indent_output();
-                if(search_type_for_name(e->addr) == NULL)
-                    fprintf(output, "%s %s = ", e->e_type->name, e->addr);
-                else
-                    fprintf(output, "%s = ", e->addr);
+            {
+                char addr[100];
                 if(e->num.kind == INTEGER) {
-                    fprintf(output, "%d;\n", e->num.ivalue);
+                    sprintf(addr, "%d", e->num.ivalue);
+                }else {
+                    sprintf(addr, "%f", e->num.fvalue);
+                }
+
+                if(e->addr[0] != 0 && strcmp(e->addr, addr) != 0) {
+                    indent_output();
+                    if(search_type_for_name(e->addr) == NULL)
+                        fprintf(output, "%s %s = ", e->e_type->name, e->addr);
+                    else
+                        fprintf(output, "%s = ", e->addr);
+                    if(e->num.kind == INTEGER) {
+                        fprintf(output, "%d;\n", e->num.ivalue);
+                    }
+                    else {
+                        fprintf(output, "%f;\n", e->num.fvalue);
+                    }
                 }
                 else {
-                    fprintf(output, "%f;\n", e->num.fvalue);
+                    strcpy(e->addr, addr);
                 }
             }
-            else {
-                if(e->num.kind == INTEGER) {
-                    sprintf(e->addr, "%d", e->num.ivalue);
-                }else {
-                    sprintf(e->addr, "%f", e->num.fvalue);
-                }
-            }
-
             break;
         case Name_kind:
             if(e->addr[0] != 0 && strcmp(e->addr, e->name.id) != 0) {
@@ -790,14 +794,18 @@ stmt_for_expr(expr_ty e) {
             }
             break;
         case Str_kind:
-            if(e->addr[0] != 0) {
-                indent_output();
-                if(search_type_for_name(e->addr) == NULL)
-                    fprintf(output, "%s %s = \"%s\";\n", e->e_type->name, e->addr,  e->str.s);
-                else
-                    fprintf(output, "%s = \"%s\";\n", e->addr,  e->str.s);
-            }else {
-                sprintf(e->addr, "\"%s\"", e->str.s);
+            {
+                char addr[100];
+                sprintf(addr, "\"%s\"", e->str.s);
+                if(e->addr[0] != 0 && strcmp(e->addr, addr) != 0) {
+                    indent_output();
+                    if(search_type_for_name(e->addr) == NULL)
+                        fprintf(output, "%s %s = \"%s\";\n", e->e_type->name, e->addr,  e->str.s);
+                    else
+                        fprintf(output, "%s = \"%s\";\n", e->addr,  e->str.s);
+                }else {
+                    sprintf(e->addr, "\"%s\"", e->str.s);
+                }
             }
             break;
         case Compare_kind:
@@ -849,7 +857,7 @@ stmt_for_expr(expr_ty e) {
                 }
                 strcat(e->addr, ") ");
             }
-            //erase_addr_for_expr(e);
+            erase_addr_for_expr(e);
             break;
         case Subscript_kind:
             {
@@ -1498,7 +1506,7 @@ erase_addr_for_expr(expr_ty e) {
         case Call_kind:
             e->call.func->addr[0] = 0;
             for(i = 0; i < e->call.n_arg; i ++ ) {
-                e->call.args[i].value->addr[0] = 0;
+                e->call.args[i].args->addr[0] = 0;
             }
             if(e->call.varg)
                 e->call.varg->addr[0] = 0;
