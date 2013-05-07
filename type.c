@@ -258,17 +258,6 @@ assign_type_to_stmt(stmt_ty s) {
                 for(i = 0; i < s->print.n_value; i ++ ) {
                     if(s->print.values[i]->e_type->kind == LIST_KIND) {
                         if(end == 1)  printf(";\n");
-                        /*
-                        fprintf(output, "%s << \"[\";\n", dest);
-                        indent_output();
-                        fprintf(output, "for_each(%s.begin(), %s.end() - 1, output<%s, %s>);\n",
-                                s->print.values[i]->addr, s->print.values[i]->addr,
-                                s->print.values[i]->e_type->base->name, dest);
-                        indent_output();
-                        fprintf(output, "%s << *(%s.end() -1);\n", dest, s->print.values[i]->addr);
-                        indent_output();
-                        fprintf(output, "%s << \"] \";\n", dest);
-                        */
                         indent_output();
                         fprintf(output, "output<%s>(%s);\n",
                                 dest, s->print.values[i]->addr);

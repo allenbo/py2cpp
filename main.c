@@ -38,7 +38,7 @@ int main() {
             "\tfor(int i = 0; i < v.size(); i ++ ) {\n"
             "\t\toutput<out>(v[i]);\n"
             "\t\tif(i != v.size() - 1)\n"
-            "\t\t\tout<<\", \";"
+            "\t\t\tout<<\", \";\n"
             "\t}\n"
             "\tout<<\"]\";\n"
             "}\n\n");
