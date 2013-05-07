@@ -514,6 +514,7 @@ assign_type_to_expr(expr_ty e) {
         case Call_kind:
             {
                 char fullname[50] = "";
+                assign_type_to_expr(e->call.func);
                 strcpy(fullname, e->call.func->name.id);
                 int i;
                 e->isplain = 1;
@@ -553,7 +554,7 @@ assign_type_to_expr(expr_ty e) {
                 else {
                     e->e_type = tp;
                 }
-                strcpy(e->call.fullname, fullname);
+                //strcpy(e->call.fullname, fullname);
             }
             break;
         case Repr_kind:
@@ -757,7 +758,7 @@ stmt_for_expr(expr_ty e) {
                 if(e->num.kind == INTEGER) {
                     sprintf(addr, "%d", e->num.ivalue);
                 }else {
-                    sprintf(addr, "%f", e->num.fvalue);
+                    sprintf(addr, "%ff", e->num.fvalue);
                 }
 
                 if(e->addr[0] != 0 && strcmp(e->addr, addr) != 0) {
@@ -770,7 +771,7 @@ stmt_for_expr(expr_ty e) {
                         fprintf(output, "%d;\n", e->num.ivalue);
                     }
                     else {
-                        fprintf(output, "%f;\n", e->num.fvalue);
+                        fprintf(output, "%ff;\n", e->num.fvalue);
                     }
                 }
                 else {
@@ -833,12 +834,13 @@ stmt_for_expr(expr_ty e) {
             }
             break;
         case Call_kind:
+            stmt_for_expr(e->call.func);
             if(e->addr[0] != 0) {
                 indent_output();
                 if(search_type_for_name(e->addr) == NULL)
-                    fprintf(output, "%s %s = %s(", e->e_type->name,  e->addr, e->call.fullname);
+                    fprintf(output, "%s %s = %s(", e->e_type->name,  e->addr, e->call.func->addr);
                 else
-                    fprintf(output, "%s = %s(",  e->addr, e->call.fullname);
+                    fprintf(output, "%s = %s(",  e->addr, e->call.func->addr);
                 int i ;
                 for(i = 0; i < e->call.n_arg; i ++ ) {
                     stmt_for_expr(e->call.args[i].args);
@@ -848,7 +850,7 @@ stmt_for_expr(expr_ty e) {
                 fprintf(output, ");\n");
             }
             else {
-                sprintf(e->addr, "%s(", e->call.fullname);
+                sprintf(e->addr, "%s(", e->call.func->addr);
                 int i ;
                 for(i = 0; i < e->call.n_arg; i ++ ) {
                     stmt_for_expr(e->call.args[i].args);
@@ -1408,7 +1410,7 @@ eliminate_python_unique_for_stmt(stmt_ty s) {
                 output = fopen(filename, "w");
 
                 char funcsig[128];
-                sprintf(funcsig, "%s(", s->funcdef.fullname);
+                sprintf(funcsig, "%s(", s->funcdef.name);
 
                 int n = s->funcdef.args->n_param;
                 int i;
