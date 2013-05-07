@@ -51,6 +51,10 @@ static void eliminate_python_unique_for_stmt(stmt_ty s);
 static void erase_addr_for_expr(expr_ty e);
 static void erase_addr_for_stmt(stmt_ty s);
 
+static void builtin_func_handler(expr_ty e);
+
+
+
 void indent_output() {
     int i ;
 
@@ -543,18 +547,24 @@ assign_type_to_expr(expr_ty e) {
                 type_ty tp = search_type_for_name(fullname);
                 if(tp == NULL) {
                     stmt_ty st = search_stmt_for_name(e->call.func->name.id);
-                    insert_to_func_table(fullname, &t_unknown, SE_FUNCTION_KIND);
-                    strcpy(st->funcdef.fullname, fullname);
-                    push_type_to_arguments(st, e);
-                    eliminate_python_unique_for_stmt(st);
-                    e->e_type = func_ret;
-                    change_func_ret_type(fullname, func_ret);
-                    func_ret = NULL;
+                    if(NULL != st) {
+                        insert_to_func_table(fullname, &t_unknown, SE_FUNCTION_KIND);
+                        strcpy(st->funcdef.fullname, fullname);
+                        push_type_to_arguments(st, e);
+                        eliminate_python_unique_for_stmt(st);
+                        e->e_type = func_ret;
+                        change_func_ret_type(fullname, func_ret);
+                        strcpy(e->call.fullname, e->call.func->name.id);
+                        func_ret = NULL;
+                    }else {
+                        /* builtin function */
+                        builtin_func_handler(e);
+                    }
                 }
                 else {
                     e->e_type = tp;
+                    strcpy(e->call.fullname, e->call.func->name.id);
                 }
-                //strcpy(e->call.fullname, fullname);
             }
             break;
         case Repr_kind:
@@ -834,13 +844,12 @@ stmt_for_expr(expr_ty e) {
             }
             break;
         case Call_kind:
-            stmt_for_expr(e->call.func);
             if(e->addr[0] != 0) {
                 indent_output();
                 if(search_type_for_name(e->addr) == NULL)
-                    fprintf(output, "%s %s = %s(", e->e_type->name,  e->addr, e->call.func->addr);
+                    fprintf(output, "%s %s = %s(", e->e_type->name,  e->addr, e->call.fullname);
                 else
-                    fprintf(output, "%s = %s(",  e->addr, e->call.func->addr);
+                    fprintf(output, "%s = %s(",  e->addr, e->call.fullname);
                 int i ;
                 for(i = 0; i < e->call.n_arg; i ++ ) {
                     stmt_for_expr(e->call.args[i].args);
@@ -850,7 +859,7 @@ stmt_for_expr(expr_ty e) {
                 fprintf(output, ");\n");
             }
             else {
-                sprintf(e->addr, "%s(", e->call.func->addr);
+                sprintf(e->addr, "%s(", e->call.fullname);
                 int i ;
                 for(i = 0; i < e->call.n_arg; i ++ ) {
                     stmt_for_expr(e->call.args[i].args);
@@ -1610,5 +1619,21 @@ erase_addr_for_stmt(stmt_ty s) {
         case Expr_kind:
             s->exprstmt.value->addr[0] = 0;
             break;
+    }
+}
+
+
+static void
+builtin_func_handler(expr_ty e){
+    if(strcmp(e->call.func->name.id, "abs") == 0) {
+        expr_ty te =e->call.args[0].args;
+        if(te->e_type == &t_float)  {
+            strcpy(e->call.fullname, "fabs");
+            change_func_ret_type("abs", te->e_type);
+        }else if(te->e_type == &t_integer) {
+            strcpy(e->call.fullname, "abs");
+            change_func_ret_type("abs", te->e_type);
+        }
+        e->e_type = te->e_type;
     }
 }

@@ -52,6 +52,16 @@ create_symtab(symtab_ty p) {
     return st;
 }
 
+static void
+init_global_symtab() {
+    if(NULL == global_table)
+        global_table = create_symtab(NULL);
+
+    insert_incomplete_func_to_table("abs", NULL);
+
+}
+
+
 
 static void
 expand_cur_table_for_entry() {

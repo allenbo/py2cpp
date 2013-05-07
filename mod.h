@@ -354,7 +354,6 @@ typedef struct {
     char fullname[NAME_MAX_SIZE];
 }Call;
 
-
 typedef struct {
     char id [NAME_MAX_SIZE];
     expr_context_ty ctx;
