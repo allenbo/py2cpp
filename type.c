@@ -64,7 +64,7 @@ void indent_output() {
 }
 
 
-static type_ty
+type_ty
 create_list_type(type_ty t) {
     type_ty tp = (type_ty) malloc ( sizeof(struct type) );
     sprintf(tp->name, "vector< %s >", t->name);
@@ -258,7 +258,7 @@ assign_type_to_stmt(stmt_ty s) {
                 for(i = 0; i < s->print.n_value; i ++ ) {
                     if(s->print.values[i]->e_type->kind == LIST_KIND) {
                         if(end == 1)  printf(";\n");
-                        indent_output();
+                        /*
                         fprintf(output, "%s << \"[\";\n", dest);
                         indent_output();
                         fprintf(output, "for_each(%s.begin(), %s.end() - 1, output<%s, %s>);\n",
@@ -268,6 +268,10 @@ assign_type_to_stmt(stmt_ty s) {
                         fprintf(output, "%s << *(%s.end() -1);\n", dest, s->print.values[i]->addr);
                         indent_output();
                         fprintf(output, "%s << \"] \";\n", dest);
+                        */
+                        indent_output();
+                        fprintf(output, "output<%s>(%s);\n",
+                                dest, s->print.values[i]->addr);
                         fcout = 0;
                         end = 1;
                     }
@@ -648,7 +652,7 @@ assign_type_to_comprehension(comprehension_ty com) {
     }
     assign_type_to_expr(iter);
 
-    if(iter->e_type->kind = LIST_KIND) {
+    if(iter->e_type->kind == LIST_KIND) {
         target->e_type = iter->e_type->base;
     }else if(iter->e_type->kind ==DICT_KIND) {
         target->e_type = iter->e_type->kbase;
@@ -1170,7 +1174,10 @@ eliminate_python_unique_for_expr(expr_ty e) {
                     fprintf(output, "%s.clear();\n", e->addr);
                 }
                 for(i = 0; i < e->listcomp.n_com; i ++ )  {
-                    eliminate_python_unique_for_expr(e->listcomp.generators[i]->iter);
+                    if(e->listcomp.generators[i]->iter->isplain)
+                        stmt_for_expr(e->listcomp.generators[i]->iter);
+                    else
+                        eliminate_python_unique_for_expr(e->listcomp.generators[i]->iter);
                     int j;
                     for(j = 0; j < e->listcomp.generators[i]->n_test; j ++ ) {
                         expr_ty t = e->listcomp.generators[i]->tests[j];
@@ -1625,7 +1632,8 @@ erase_addr_for_stmt(stmt_ty s) {
 
 static void
 builtin_func_handler(expr_ty e){
-    if(strcmp(e->call.func->name.id, "abs") == 0) {
+    char* name = e->call.func->name.id;
+    if(strcmp(name, "abs") == 0) {
         expr_ty te =e->call.args[0].args;
         if(te->e_type == &t_float)  {
             strcpy(e->call.fullname, "fabs");
@@ -1635,5 +1643,32 @@ builtin_func_handler(expr_ty e){
             change_func_ret_type("abs", te->e_type);
         }
         e->e_type = te->e_type;
+    }
+
+    else if(strcmp(name, "range") == 0) {
+        e->e_type = create_list_type(&t_integer);
+        strcpy(e->call.fullname, "range");
+        if(e->call.n_arg == 1) {
+            FILE* fdef = fopen("definition.h", "a");
+            fprintf(fdef, "vector<int>\n"
+                    "range(int stop) {\n"
+                    "\tvector<int> t;\n"
+                    "\tfor(int i = 0; i < stop; i ++ )\n"
+                    "\t\tt.push_back(i);\n"
+                    "\treturn t;\n}");
+            fclose(fdef);
+            insert_to_global_table("range_i", e->e_type, SE_FUNCTION_KIND);
+        }else {
+            FILE* fdef = fopen("definition.h", "a");
+            fprintf(fdef, "vector<int>\n"
+                    "range(int start, int stop, int step = 1) {\n"
+                    "\tvector<int> t;\n"
+                    "\tfor(int i = 0; i < stop; i += step)\n"
+                    "\t\tt.push_back(i);\n"
+                    "\treturn t;\n}");
+            fclose(fdef);
+            insert_to_global_table("range_i_i", e->e_type, SE_FUNCTION_KIND);
+            insert_to_global_table("range_i_i_i", e->e_type, SE_FUNCTION_KIND);
+        }
     }
 }

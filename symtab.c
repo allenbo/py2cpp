@@ -4,6 +4,13 @@
 #include <string.h>
 
 
+extern struct type t_unknown;
+extern struct type t_char;
+extern struct type t_boolean;
+extern struct type t_integer;
+extern struct type t_float;
+extern struct type t_string;
+
 static symtab_ty global_table = NULL;
 static symtab_ty cur_table = NULL;
 static symtab_ty func_table = NULL;
@@ -51,16 +58,16 @@ create_symtab(symtab_ty p) {
     st->st_symbols = (symtab_entry_ty*) malloc (sizeof(symtab_entry_ty) * st->st_capacity);
     return st;
 }
-
+/*
 static void
 init_global_symtab() {
     if(NULL == global_table)
         global_table = create_symtab(NULL);
 
     insert_incomplete_func_to_table("abs", NULL);
-
+    insert_incomplete_func_to_table("range", create_list_type(&t_integer));
 }
-
+*/
 
 
 static void
@@ -164,6 +171,17 @@ insert_to_func_table(char* name, type_ty tp, enum symtab_entry_kind kind) {
     return 1;
 }
 
+int
+insert_to_global_table(char* name, type_ty tp, enum symtab_entry_kind kind) {
+    push_table(cur_table);
+    cur_table = global_table;
+    if(cur_table->st_size == cur_table->st_capacity) {
+        expand_cur_table_for_entry();
+    }
+    cur_table->st_symbols[cur_table->st_size ++ ] = create_symtab_entry(name, tp, kind, cur_table);
+    cur_table = pop_table();
+    return 1;
+}
 
 int
 insert_incomplete_func_to_table(char* name, stmt_ty node) {

@@ -30,10 +30,20 @@ int main() {
             "#include \"definition.h\"\n\n");
 
     fdef = fopen("definition.h", "w");
-    fprintf(fdef, "template <class T, ostream& out>\n"
-            "void output(T x) { out<< x << \", \";}\n\n");
-
+    fprintf(fdef, "template <ostream& out, class T>\n"
+            "void output(T x) { out<< x;}\n\n");
+    fprintf(fdef, "template <ostream& out, class T>\n"
+            "void output(vector<T> & v) {\n"
+            "\tout<<\"[\";\n"
+            "\tfor(int i = 0; i < v.size(); i ++ ) {\n"
+            "\t\toutput<out>(v[i]);\n"
+            "\t\tif(i != v.size() - 1)\n"
+            "\t\t\tout<<\", \";"
+            "\t}\n"
+            "\tout<<\"]\";\n"
+            "}\n\n");
     fclose(fdef);
+
 
     printf("int main(int argc, char** argv) {\n");
 
