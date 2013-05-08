@@ -610,6 +610,24 @@ assign_type_to_expr(expr_ty e) {
                             e->call.args[1].args = name2;
                             e->call.args[2].args = name3;
                         }
+                        else if( strcmp(tf->attribute.attr, "sort") == 0) {
+                            sprintf(e->call.fullname, "sort");
+
+                            e->call.n_arg = 2;
+
+                            expr_ty name1 = expr_new();
+                            name1->kind = Name_kind;
+                            sprintf(name1->name.id, "%s.begin()", tf->attribute.value->addr);
+
+                            expr_ty name2 = expr_new();
+                            name2->kind = Name_kind;
+                            sprintf(name2->name.id, "%s.end()", tf->attribute.value->addr);
+
+                            e->call.args = (Parameter*) malloc (sizeof(Parameter) * 3);
+                            e->call.args[0].args = name1;
+                            e->call.args[1].args = name2;
+
+                        }
                         else
                             strcpy(e->call.fullname, fullname);
                     }
