@@ -106,8 +106,7 @@ create_symtab_entry(char* name, type_ty tp, enum symtab_entry_kind kind, symtab_
 }
 
 static symtab_ty
-create_symtab(symtab_ty p) {
-    symtab_ty st  = (symtab_ty) malloc (sizeof(struct symtab));
+create_symtab(symtab_ty p) { symtab_ty st  = (symtab_ty) malloc (sizeof(struct symtab));
     memset(st, 0, sizeof(struct symtab));
     st->st_capacity = 8;
     st->st_parent = p;
@@ -125,21 +124,10 @@ init_global_table() {
 symtab_ty get_current_symtab() { return cur_table; }
 symtab_ty get_global_table() { return global_table; }
 
-
-type_ty
-search_type_for_name(char* name) {
-    if(global_table == NULL) {
-        global_table = create_symtab(NULL);
-        init_global_table();
-        cur_table = global_table;
-        return NULL;
-    }
-    char* p = name;
-    if((p = strchr(name, '[') ) != NULL) {
-        return (type_ty)1;
-    }
+static type_ty
+search_type_for_name_internal(char* name, symtab_ty from_table) {
+    symtab_ty st = from_table;
     int i;
-    symtab_ty st = cur_table;
     while(st) {
         for(i = st->st_size - 1 ; i >= 0 ; -- i) {
             symtab_entry_ty se = st->st_symbols[i];
@@ -150,6 +138,26 @@ search_type_for_name(char* name) {
         st = st->st_parent;
     }
     return NULL;
+}
+
+
+type_ty
+search_type_for_name(char* name) {
+    if(global_table == NULL) {
+        global_table = create_symtab(NULL);
+        init_global_table();
+        cur_table = global_table;
+        return NULL;
+    }
+    int i;
+    symtab_ty st = cur_table;
+
+    type_ty tp = NULL;
+
+    char* p = NULL;
+    if((p = strchr(name, '[')) != NULL || (p = strchr(name, '.')) != NULL)
+        return (type_ty)1;
+    return search_type_for_name_internal(name,st);
 }
 
 
@@ -259,6 +267,7 @@ insert_class_to_table(char* name) {
         expand_cur_table_for_entry();
     }
     cur_table->st_symbols[cur_table->st_size ++ ] = create_class_symtab_entry(name, cur_table);
+    cur_table->st_symbols[cur_table->st_size-1]->se_scope = create_symtab(NULL);
 }
 
 
@@ -278,8 +287,15 @@ enter_new_scope_for_func() {
     cur_table = func_table->st_children[func_table->n_child - 1];
 }
 
+
 void
-exit_scope_from_func() {
+enter_new_scope_for_class() {
+    push_table(cur_table);
+    cur_table = cur_table->st_symbols[cur_table->st_size -1]->se_scope;
+}
+
+void
+exit_scope() {
     cur_table = pop_table();
 }
 
@@ -299,8 +315,8 @@ search_type_for_name_and_class(char* name, char* class) {
         if(strcmp(se->se_name, name) == 0) {
             if(se->c_name[0] != 0) {
                 strcpy(name, se->c_name);
-                return se->se_type;
             }
+            return se->se_type;
         }
     }
     return NULL;

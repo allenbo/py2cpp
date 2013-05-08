@@ -78,7 +78,8 @@ void change_func_ret_type(char* fullname, type_ty func_ret);
 
 
 void enter_new_scope_for_func();
-void exit_scope_from_func();
+void enter_new_scope_for_class();
+void exit_scope();
 
 type_ty create_list_type(type_ty t);
 #endif

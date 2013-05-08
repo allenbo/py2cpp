@@ -140,6 +140,9 @@ assign_type_to_stmt(stmt_ty s) {
             break;
         case ClassDef_kind:
             insert_class_to_table(s->classdef.name);
+            enter_new_scope_for_class();
+            assign_type_to_ast(s->classdef.body);
+            exit_scope();
             break;
         case Return_kind:
             assign_type_to_expr(s->ret.value);
@@ -248,6 +251,8 @@ assign_type_to_stmt(stmt_ty s) {
                 }
 
                 for(i = 0; i < s->print.n_value; i ++ ) {
+                    if(s->print.values[i]->kind == Call_kind)
+                        strcpy(s->print.values[i]->addr, newTemp());
                     if(s->print.values[i]->isplain)
                         stmt_for_expr(s->print.values[i]);
                     else
@@ -262,6 +267,8 @@ assign_type_to_stmt(stmt_ty s) {
                         indent_output();
                         fprintf(output, "output<%s>(%s);\n",
                                 dest, s->print.values[i]->addr);
+                        indent_output();
+                        fprintf(output, "cout<< \" \";\n");
                         fcout = 0;
                         end = 1;
                     }
@@ -661,7 +668,9 @@ assign_type_to_expr(expr_ty e) {
             break;
         case Attribute_kind:
             assign_type_to_expr(e->attribute.value);
-            type_ty tp = search_type_for_name_and_class(e->attribute.attr, "vector");
+            type_ty tp = search_type_for_name_and_class(e->attribute.attr,
+                    e->attribute.value->e_type->name);
+            e->e_type = tp;
             e->isplain = 1;
             break;
         case Subscript_kind:
@@ -1537,7 +1546,7 @@ eliminate_python_unique_for_stmt(stmt_ty s) {
 
                 fprintf(output, "}\n");
 
-                exit_scope_from_func();
+                exit_scope();
 
                 fclose(output);
                 output = pop_fd();
