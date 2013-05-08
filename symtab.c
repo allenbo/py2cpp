@@ -31,10 +31,10 @@ struct symtab_entry list_append = {
     NULL, 0, "append", "push_back", SE_FUNCTION_KIND, &t_unknown, NULL, NULL
 };
 struct symtab_entry list_extend = {
-    NULL, 0, "extend", "insert", SE_FUNCTION_KIND, &t_unknown, NULL, NULL
+    NULL, 0, "extend", "", SE_FUNCTION_KIND, &t_unknown, NULL, NULL
 };
 struct symtab_entry list_insert = {
-    NULL, 0, "insert", "insert", SE_FUNCTION_KIND, &t_unknown, NULL, NULL
+    NULL, 0, "insert", "", SE_FUNCTION_KIND, &t_unknown, NULL, NULL
 };
 symtab_entry_ty list_symbol[10] = { &list_append , &list_extend , &list_insert};
 struct symtab list_att  = {
@@ -271,7 +271,7 @@ search_type_for_name_and_class(char* name, char* class) {
     for(i = st->st_size -1; i >= 0;  -- i) {
         symtab_entry_ty se = st->st_symbols[i];
         if(strcmp(se->se_name, name) == 0) {
-            if(se->c_name != 0) {
+            if(se->c_name[0] != 0) {
                 strcpy(name, se->c_name);
                 return se->se_type;
             }

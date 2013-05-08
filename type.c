@@ -569,20 +569,23 @@ assign_type_to_expr(expr_ty e) {
                     }
                 }
                 else {
-                    strcpy(e->call.fullname, fullname);
                     expr_ty tf = e->call.func;
+                    if(tf->attribute.value->isplain)
+                        stmt_for_expr(tf->attribute.value);
+                    else
+                        eliminate_python_unique_for_expr(tf->attribute.value);
                     if(tf->attribute.value->e_type->kind == LIST_KIND) {
                         if(strcmp(tf->attribute.attr, "insert") == 0) {
                             expr_ty name = expr_new();
                             name->kind = Name_kind;
-                            if(tf->attribute.value->isplain)
-                                stmt_for_expr(tf->attribute.value);
-                            else
-                                eliminate_python_unique_for_expr(tf->attribute.value);
                             sprintf(name->name.id, "%s.begin()", tf->attribute.value->addr);
-
                             e->call.args[0].args = Binop_expr(name, Add, e->call.args[0].args, 0, 0);
+                            sprintf(e->call.fullname, "%s.insert", tf->attribute.value->addr);
+                        }else if(strcmp(tf->attribute.attr, "extend") == 0) {
+                            sprintf(e->call.fullname, "%s.insert", tf->attribute.value->addr);
                         }
+                        else
+                            strcpy(e->call.fullname, fullname);
                     }
                     int i;
                     for(i = 0; i < e->call.n_arg; i ++ ) {
