@@ -139,6 +139,7 @@ assign_type_to_stmt(stmt_ty s) {
             insert_incomplete_func_to_table(s->funcdef.name,s);
             break;
         case ClassDef_kind:
+            insert_class_to_table(s->classdef.name);
             break;
         case Return_kind:
             assign_type_to_expr(s->ret.value);

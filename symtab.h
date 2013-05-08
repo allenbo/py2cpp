@@ -73,7 +73,7 @@ int insert_to_current_table(char *name, type_ty t, enum symtab_entry_kind kind);
 int insert_to_func_table(char *name, type_ty t, enum symtab_entry_kind kind);
 int insert_to_global_table(char *name, type_ty t, enum symtab_entry_kind kind);
 int insert_incomplete_func_to_table(char* name, stmt_ty node);
-
+int insert_class_to_table(char* name);
 
 
 type_ty search_type_for_name(char* name);

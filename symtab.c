@@ -83,6 +83,15 @@ create_incomplete_func_symtab_entry(char* name, stmt_ty s, symtab_ty t) {
 
 
 static symtab_entry_ty
+create_class_symtab_entry(char* name, symtab_ty t) {
+    symtab_entry_ty se = (symtab_entry_ty) malloc (sizeof( struct symtab_entry));
+    memset(se, 0, sizeof(struct symtab_entry));
+    strcpy(se->se_name, name);
+    se->se_kind = SE_CLASS_KIND;
+    se->se_table = t;
+}
+
+static symtab_entry_ty
 create_symtab_entry(char* name, type_ty tp, enum symtab_entry_kind kind, symtab_ty t) {
     symtab_entry_ty se = (symtab_entry_ty) malloc (sizeof(struct symtab_entry));
     memset(se, 0, sizeof(struct symtab_entry));
@@ -224,6 +233,7 @@ int
 insert_incomplete_func_to_table(char* name, stmt_ty node) {
     if(global_table == NULL) {
         global_table = create_symtab(NULL);
+        init_global_table();
         cur_table = global_table;
     }
 
@@ -234,6 +244,19 @@ insert_incomplete_func_to_table(char* name, stmt_ty node) {
     return 1;
 }
 
+int
+insert_class_to_table(char* name) {
+    if(global_table == NULL) {
+        global_table = create_symtab(NULL);
+        init_global_table();
+        cur_table = global_table;
+    }
+
+    if(cur_table->st_size == cur_table->st_capacity) {
+        expand_cur_table_for_entry();
+    }
+    cur_table->st_symbols[cur_table->st_size ++ ] = create_class_symtab_entry(name, cur_table);
+}
 
 
 void
