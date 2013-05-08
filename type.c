@@ -582,7 +582,33 @@ assign_type_to_expr(expr_ty e) {
                             e->call.args[0].args = Binop_expr(name, Add, e->call.args[0].args, 0, 0);
                             sprintf(e->call.fullname, "%s.insert", tf->attribute.value->addr);
                         }else if(strcmp(tf->attribute.attr, "extend") == 0) {
+                            assign_type_to_expr(e->call.args[0].args);
+                            if(e->call.args[0].args->kind == Call_kind)
+                                strcpy(e->call.args[0].args->addr, newTemp());
+                            if(e->call.args[0].args->isplain)
+                                stmt_for_expr(e->call.args[0].args);
+                            else
+                                eliminate_python_unique_for_expr(e->call.args[0].args);
                             sprintf(e->call.fullname, "%s.insert", tf->attribute.value->addr);
+                            e->call.n_arg = 3;
+
+                            expr_ty name1 = expr_new();
+                            name1->kind = Name_kind;
+                            sprintf(name1->name.id, "%s.end()", tf->attribute.value->addr);
+
+                            expr_ty name2 = expr_new();
+                            name2->kind = Name_kind;
+                            sprintf(name2->name.id, "%s.begin()", e->call.args[0].args->addr);
+
+                            expr_ty name3 = expr_new();
+                            name3->kind = Name_kind;
+                            sprintf(name3->name.id, "%s.end()", e->call.args[0].args->addr);
+
+                            free(e->call.args);
+                            e->call.args = (Parameter*) malloc (sizeof(Parameter) * 3);
+                            e->call.args[0].args = name1;
+                            e->call.args[1].args = name2;
+                            e->call.args[2].args = name3;
                         }
                         else
                             strcpy(e->call.fullname, fullname);
