@@ -3,8 +3,8 @@
 
 #include "mod.h"
 
-enum symtab_entry_kind { SE_UNKNOWN_KIND, SE_FUNCTION_KIND, SE_VARIABLE_KIND, SE_CONSTANT_KIND , SE_GLOBAL_KIND, SE_DEFAULT_KIND, SE_TEMP};
-enum symtab_kind { SK_FILE_KIND, SK_FUNCTION_KIND };
+enum symtab_entry_kind { SE_UNKNOWN_KIND, SE_FUNCTION_KIND, SE_VARIABLE_KIND, SE_CONSTANT_KIND , SE_GLOBAL_KIND, SE_DEFAULT_KIND, SE_TEMP, SE_CLASS_KIND};
+enum symtab_kind { SK_FILE_KIND, SK_FUNCTION_KIND, SK_CLASS_KIND};
 
 enum type_kind { UNKNOWN_KIND,BOOLEAN_KIND,  CHAR_KIND, INTEGER_KIND, FLOAT_KIND, STRING_KIND, LIST_KIND, DICT_KIND, POINTER_KIND,
     TUPLE_KIND, FUNCTION_KIND };
@@ -22,6 +22,7 @@ struct symtab_entry {
     enum symtab_entry_kind se_kind;    
     type_ty se_type;
     stmt_ty se_node;
+    symtab_ty se_scope;
 };
 
 
@@ -72,10 +73,16 @@ int insert_to_current_table(char *name, type_ty t, enum symtab_entry_kind kind);
 int insert_to_func_table(char *name, type_ty t, enum symtab_entry_kind kind);
 int insert_to_global_table(char *name, type_ty t, enum symtab_entry_kind kind);
 int insert_incomplete_func_to_table(char* name, stmt_ty node);
-type_ty search_type_for_name(char* name);
-stmt_ty search_stmt_for_name(char* name);
-void change_func_ret_type(char* fullname, type_ty func_ret);
 
+
+
+type_ty search_type_for_name(char* name);
+type_ty search_type_for_name_and_class(char* name, char* class);
+stmt_ty search_stmt_for_name(char* name);
+
+
+
+void change_func_ret_type(char* fullname, type_ty func_ret);
 
 
 void enter_new_scope_for_func();

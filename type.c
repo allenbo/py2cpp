@@ -512,52 +512,63 @@ assign_type_to_expr(expr_ty e) {
             {
                 char fullname[50] = "";
                 assign_type_to_expr(e->call.func);
-                strcpy(fullname, e->call.func->name.id);
-                int i;
-                e->isplain = 1;
-                for(i = 0; i < e->call.n_arg; i ++ ) {
-                    assign_type_to_expr(e->call.args[i].args);
-                    if(e->call.args[i].args->isplain == 0)
-                        e->isplain = 0;
-                    switch(e->call.args[i].args->e_type->kind) {
-                        case BOOLEAN_KIND:
-                            strcat(fullname, "_b");break;
-                        case CHAR_KIND:
-                            strcat(fullname, "_c");break;
-                        case INTEGER_KIND:
-                            strcat(fullname, "_i");break;
-                        case FLOAT_KIND:
-                            strcat(fullname, "_f");break;
-                        case STRING_KIND:
-                            strcat(fullname, "_s");break;
-                        case LIST_KIND:
-                            strcat(fullname, "_l");break;
-                        default:
-                            break;
-                    }
-                }
+                if(e->call.func->isplain)
+                    stmt_for_expr(e->call.func);
+                else
+                    eliminate_python_unique_for_expr(e->call.func);
 
-                type_ty tp = search_type_for_name(fullname);
-                if(tp == NULL) {
-                    stmt_ty st = search_stmt_for_name(e->call.func->name.id);
-                    if(NULL != st) {
-                        insert_to_func_table(fullname, &t_unknown, SE_FUNCTION_KIND);
-                        strcpy(st->funcdef.fullname, fullname);
-                        push_type_to_arguments(st, e);
-                        eliminate_python_unique_for_stmt(st);
-                        e->e_type = func_ret;
-                        change_func_ret_type(fullname, func_ret);
+                strcpy(fullname, e->call.func->addr);
+
+                if(e->call.func->kind == Name_kind) {
+                    int i;
+                    e->isplain = 1;
+                    for(i = 0; i < e->call.n_arg; i ++ ) {
+                        assign_type_to_expr(e->call.args[i].args);
+                        if(e->call.args[i].args->isplain == 0)
+                            e->isplain = 0;
+                        switch(e->call.args[i].args->e_type->kind) {
+                            case BOOLEAN_KIND:
+                                strcat(fullname, "_b");break;
+                            case CHAR_KIND:
+                                strcat(fullname, "_c");break;
+                            case INTEGER_KIND:
+                                strcat(fullname, "_i");break;
+                            case FLOAT_KIND:
+                                strcat(fullname, "_f");break;
+                            case STRING_KIND:
+                                strcat(fullname, "_s");break;
+                            case LIST_KIND:
+                                strcat(fullname, "_l");break;
+                            default:
+                                break;
+                        }
+                    }
+
+                    type_ty tp = search_type_for_name(fullname);
+                    if(tp == NULL) {
+                        stmt_ty st = search_stmt_for_name(e->call.func->name.id);
+                        if(NULL != st) {
+                            insert_to_func_table(fullname, &t_unknown, SE_FUNCTION_KIND);
+                            strcpy(st->funcdef.fullname, fullname);
+                            push_type_to_arguments(st, e);
+                            eliminate_python_unique_for_stmt(st);
+                            e->e_type = func_ret;
+                            change_func_ret_type(fullname, func_ret);
+                            strcpy(e->call.fullname, e->call.func->name.id);
+                            func_ret = NULL;
+                        }else {
+                            /* builtin function */
+                            builtin_func_handler(e);
+                        }
+                    }
+                    else {
+                        e->e_type = tp;
                         strcpy(e->call.fullname, e->call.func->name.id);
-                        func_ret = NULL;
-                    }else {
-                        /* builtin function */
-                        builtin_func_handler(e);
                     }
                 }
                 else {
-                    e->e_type = tp;
-                    strcpy(e->call.fullname, e->call.func->name.id);
                 }
+                erase_addr_for_expr(e->call.func);
             }
             break;
         case Repr_kind:
@@ -577,6 +588,9 @@ assign_type_to_expr(expr_ty e) {
             e->isplain = 1;
             break;
         case Attribute_kind:
+            assign_type_to_expr(e->attribute.value);
+            type_ty tp = search_type_for_name_and_class(e->attribute.attr, "list_builtin");
+            e->isplain = 1;
             break;
         case Subscript_kind:
             {
@@ -905,6 +919,18 @@ stmt_for_expr(expr_ty e) {
                 sprintf(e->addr, "%s%s", get_unaryop_literal(e->unaryop.op), e->unaryop.operand->addr);
             }
             erase_addr_for_expr(e);
+            break;
+        case Attribute_kind:
+            stmt_for_expr(e->attribute.value);
+            if(e->addr[0] != 0) {
+                if(search_type_for_name(e->addr) == NULL) {
+                    indent_output();
+                    fprintf(output, "%s ", e->e_type->name);
+                }
+                fprintf(output, "%s = %s.%s;\n", e->addr, e->attribute.value->addr, e->attribute.attr);
+            }else {
+                sprintf(e->addr, "%s.%s", e->attribute.value->addr, e->attribute.attr);
+            }
             break;
     }
 }
@@ -1659,5 +1685,9 @@ builtin_func_handler(expr_ty e){
             insert_to_global_table("range_i_i", e->e_type, SE_FUNCTION_KIND);
             insert_to_global_table("range_i_i_i", e->e_type, SE_FUNCTION_KIND);
         }
+    }
+    else if(strcmp(name, "len") == 0) {
+        expr_ty arg = e->call.args[0].args;
+
     }
 }
