@@ -1588,6 +1588,9 @@ ast_for_arguments(const node* n) {
         args->default_params = default_params;
         args->vargs = vargs;
         args->kargs = kargs;
+    }else {
+        args = (arguments_ty) malloc( sizeof(struct arguments) );
+        args->n_param = 0;
     }
 
     return args;

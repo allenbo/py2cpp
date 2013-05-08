@@ -31,12 +31,12 @@ FILE* pop_fd() {
 FILE* output = NULL;
 
 
-struct type t_unknown  = {UNKNOWN_KIND, 0 , "void"};
-struct type t_char = {CHAR_KIND, 1, "char"};
-struct type t_boolean = {BOOLEAN_KIND, 1, "bool"};
-struct type t_integer = {INTEGER_KIND, 4, "int"};
-struct type t_float = {FLOAT_KIND, 4, "float"};
-struct type t_string = {STRING_KIND, 0,  "string"};
+struct type t_unknown  = {UNKNOWN_KIND,  "void"};
+struct type t_char = {CHAR_KIND, "char"};
+struct type t_boolean = {BOOLEAN_KIND, "bool"};
+struct type t_integer = {INTEGER_KIND, "int"};
+struct type t_float = {FLOAT_KIND, "float"};
+struct type t_string = {STRING_KIND,  "string"};
 
 static void assign_type_to_stmt(stmt_ty s);
 static void assign_type_to_expr(expr_ty e);
@@ -661,7 +661,7 @@ assign_type_to_expr(expr_ty e) {
             break;
         case Attribute_kind:
             assign_type_to_expr(e->attribute.value);
-            type_ty tp = search_type_for_name_and_class(e->attribute.attr, "list_builtin");
+            type_ty tp = search_type_for_name_and_class(e->attribute.attr, "vector");
             e->isplain = 1;
             break;
         case Subscript_kind:

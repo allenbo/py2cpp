@@ -3,11 +3,13 @@
 
 #include "mod.h"
 
-enum symtab_entry_kind { SE_UNKNOWN_KIND, SE_FUNCTION_KIND, SE_VARIABLE_KIND, SE_CONSTANT_KIND , SE_GLOBAL_KIND, SE_DEFAULT_KIND, SE_TEMP, SE_CLASS_KIND};
+enum symtab_entry_kind { SE_UNKNOWN_KIND, SE_FUNCTION_KIND, SE_VARIABLE_KIND, SE_CONSTANT_KIND , SE_GLOBAL_KIND,
+    SE_DEFAULT_KIND, SE_TEMP, SE_CLASS_KIND};
+
 enum symtab_kind { SK_FILE_KIND, SK_FUNCTION_KIND, SK_CLASS_KIND};
 
 enum type_kind { UNKNOWN_KIND,BOOLEAN_KIND,  CHAR_KIND, INTEGER_KIND, FLOAT_KIND, STRING_KIND, LIST_KIND, DICT_KIND, POINTER_KIND,
-    TUPLE_KIND, FUNCTION_KIND };
+    TUPLE_KIND, FUNCTION_KIND, CLASS_KIND};
 
 
 typedef struct symtab_entry * symtab_entry_ty;
@@ -16,7 +18,6 @@ typedef struct symtab * symtab_ty;
 
 struct symtab_entry {
     symtab_ty se_table;
-    int se_offset;
     char se_name[128];
     char c_name[128];
     enum symtab_entry_kind se_kind;    
@@ -46,8 +47,7 @@ struct symtab {
 
 struct  type{
     enum type_kind kind;
-    int length;
-    char name[40];
+    char name[128];
     
     /*This is for arrary*/
     type_ty base;  /* <- also for pointer */
@@ -55,14 +55,6 @@ struct  type{
     
     type_ty kbase;
     type_ty vbase;
-    /*This is for struct */
-    symtab_ty fields;
-
-    /*This is for function */
-    int n_params;
-    int n_default;
-    type_ty* params;
-    type_ty* defaults;
 };
 
 

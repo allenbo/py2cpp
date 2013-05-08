@@ -28,13 +28,13 @@ symtab_ty pop_table() {
 
 
 struct symtab_entry list_append = {
-    NULL, 0, "append", "push_back", SE_FUNCTION_KIND, &t_unknown, NULL, NULL
+    NULL, "append", "push_back", SE_FUNCTION_KIND, &t_unknown, NULL, NULL
 };
 struct symtab_entry list_extend = {
-    NULL, 0, "extend", "", SE_FUNCTION_KIND, &t_unknown, NULL, NULL
+    NULL, "extend", "", SE_FUNCTION_KIND, &t_unknown, NULL, NULL
 };
 struct symtab_entry list_insert = {
-    NULL, 0, "insert", "", SE_FUNCTION_KIND, &t_unknown, NULL, NULL
+    NULL,"insert", "", SE_FUNCTION_KIND, &t_unknown, NULL, NULL
 };
 symtab_entry_ty list_symbol[10] = { &list_append , &list_extend , &list_insert};
 struct symtab list_att  = {
@@ -44,8 +44,7 @@ struct symtab list_att  = {
 
 struct symtab_entry list = {
     NULL,
-    0,
-    "list_builtin",
+    "vector",
     "",
     SE_CLASS_KIND,
     NULL,
@@ -89,6 +88,10 @@ create_class_symtab_entry(char* name, symtab_ty t) {
     strcpy(se->se_name, name);
     se->se_kind = SE_CLASS_KIND;
     se->se_table = t;
+    se->se_type = (type_ty) malloc( sizeof( struct type) );
+    se->se_type->kind = CLASS_KIND;
+    strcpy(se->se_type->name, name);
+    return se;
 }
 
 static symtab_entry_ty
