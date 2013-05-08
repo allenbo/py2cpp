@@ -414,6 +414,8 @@ assign_type_to_stmt(stmt_ty s) {
             else {
                 eliminate_python_unique_for_expr(s->exprstmt.value);
             }
+            indent_output();
+            fprintf(output, "%s;\n", s->exprstmt.value->addr);
             erase_addr_for_stmt(s);
             break;
     }
@@ -519,9 +521,9 @@ assign_type_to_expr(expr_ty e) {
 
                 strcpy(fullname, e->call.func->addr);
 
+                e->isplain = 1;
                 if(e->call.func->kind == Name_kind) {
                     int i;
-                    e->isplain = 1;
                     for(i = 0; i < e->call.n_arg; i ++ ) {
                         assign_type_to_expr(e->call.args[i].args);
                         if(e->call.args[i].args->isplain == 0)
@@ -567,6 +569,28 @@ assign_type_to_expr(expr_ty e) {
                     }
                 }
                 else {
+                    strcpy(e->call.fullname, fullname);
+                    expr_ty tf = e->call.func;
+                    if(tf->attribute.value->e_type->kind == LIST_KIND) {
+                        if(strcmp(tf->attribute.attr, "insert") == 0) {
+                            expr_ty name = expr_new();
+                            name->kind = Name_kind;
+                            if(tf->attribute.value->isplain)
+                                stmt_for_expr(tf->attribute.value);
+                            else
+                                eliminate_python_unique_for_expr(tf->attribute.value);
+                            sprintf(name->name.id, "%s.begin()", tf->attribute.value->addr);
+
+                            e->call.args[0].args = Binop_expr(name, Add, e->call.args[0].args, 0, 0);
+                        }
+                    }
+                    int i;
+                    for(i = 0; i < e->call.n_arg; i ++ ) {
+                        assign_type_to_expr(e->call.args[i].args);
+                        if(e->call.args[i].args->isplain == 0)
+                            e->isplain = 0;
+                    }
+
                 }
                 erase_addr_for_expr(e->call.func);
             }

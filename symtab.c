@@ -30,11 +30,16 @@ symtab_ty pop_table() {
 struct symtab_entry list_append = {
     NULL, 0, "append", "push_back", SE_FUNCTION_KIND, &t_unknown, NULL, NULL
 };
-
-symtab_entry_ty list_symbol[10] = { &list_append };
+struct symtab_entry list_extend = {
+    NULL, 0, "extend", "insert", SE_FUNCTION_KIND, &t_unknown, NULL, NULL
+};
+struct symtab_entry list_insert = {
+    NULL, 0, "insert", "insert", SE_FUNCTION_KIND, &t_unknown, NULL, NULL
+};
+symtab_entry_ty list_symbol[10] = { &list_append , &list_extend , &list_insert};
 struct symtab list_att  = {
     SK_CLASS_KIND,
-    8, 8, list_symbol, NULL, 0, 0, NULL
+    3, 8, list_symbol, NULL, 0, 0, NULL
 };
 
 struct symtab_entry list = {
