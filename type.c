@@ -7,13 +7,15 @@
 char* newTemp() {
     static int i = 0;
     char * tmp = (char* ) malloc( sizeof(char) * 10);
-    sprintf(tmp, "_t%d", i++); return tmp; }
-    char* newIterator() {
-        static int i = 0;
-        char* tmp = (char*) malloc( sizeof(char) * 4);
-        sprintf(tmp, "i%d", i ++ );
-        return tmp;
-    }
+    sprintf(tmp, "_t%d", i++);
+    return tmp;
+}
+char* newIterator() {
+    static int i = 0;
+    char* tmp = (char*) malloc( sizeof(char) * 4);
+    sprintf(tmp, "i%d", i ++ );
+    return tmp;
+}
 
 int level = 1;
 
@@ -40,18 +42,47 @@ struct type t_string = {STRING_KIND,  "string"};
 
 static void assign_type_to_stmt(stmt_ty s);
 static void assign_type_to_expr(expr_ty e);
-static void assign_type_to_comprehension(comprehension_ty com);
-static void push_type_to_expr(expr_ty e);
-static void push_type_to_arguments(stmt_ty st, expr_ty s);
-static int type_compare(type_ty t1, type_ty t2);
-static type_ty max_type(type_ty t1, type_ty t2);
-static void stmt_for_expr(expr_ty e);
-static void eliminate_python_unique_for_expr(expr_ty e);
-static void eliminate_python_unique_for_stmt(stmt_ty s);
-static void erase_addr_for_expr(expr_ty e);
-static void erase_addr_for_stmt(stmt_ty s);
 
-static void builtin_func_handler(expr_ty e);
+static void assign_type_to_funcdef_stmt(stmt_ty s);
+static void assign_type_to_classdef_stmt(stmt_ty s);
+static void assign_type_to_return_stmt(stmt_ty s);
+static void assign_type_to_delete_stmt(stmt_ty s);
+static void assign_type_to_assign_stmt(stmt_ty s);
+static void assign_type_to_augassign_stmt(stmt_ty s);
+static void assign_type_to_print_stmt(stmt_ty s);
+static void assign_type_to_for_stmt(stmt_ty s);
+static void assign_type_to_while_stmt(stmt_ty s);
+static void assign_type_to_if_stmt(stmt_ty s);
+static void assign_type_to_with_stmt(stmt_ty s);
+static void assign_type_to_raise_stmt(stmt_ty s);
+static void assign_type_to_try_stmt(stmt_ty s);
+static void assign_type_to_assert_stmt(stmt_ty s);
+static void assign_type_to_global_stmt(stmt_ty s);
+static void assign_type_to_expr_stmt(stmt_ty s);
+
+
+static void assign_type_to_binop_expr(expr_ty e);
+static void assign_type_to_boolop_expr(expr_ty e);
+static void assign_type_to_unaryop_expr(expr_ty e);
+static void assign_type_to_lambda_expr(expr_ty e);
+static void assign_type_to_ifexp_expr(expr_ty e);
+static void assign_type_to_listcomp_expr(expr_ty e);
+static void assign_type_to_dict_expr(expr_ty e);
+static void assign_type_to_set_expr(expr_ty e);
+static void assign_type_to_dictcomp_expr(expr_ty e);
+static void assign_type_to_setcomp_expr(expr_ty e);
+static void assign_type_to_generatorexp_expr(expr_ty e);
+static void assign_type_to_yield_expr(expr_ty e);
+static void assign_type_to_compare_expr(expr_ty e);
+static void assign_type_to_call_expr(expr_ty e);
+static void assign_type_to_repr_expr(expr_ty e);
+static void assign_type_to_num_expr(expr_ty e);
+static void assign_type_to_str_expr(expr_ty e);
+static void assign_type_to_attribute_expr(expr_ty e);
+static void assign_type_to_subscript_expr(expr_ty e);
+static void assign_type_to_name_expr(expr_ty e);
+static void assign_type_to_list_expr(expr_ty e);
+static void assign_type_to_tuple_expr(expr_ty e);
 
 
 
@@ -128,16 +159,11 @@ assign_type_to_stmt(stmt_ty s) {
     int i;
     switch(s->kind) {
         case Break_kind:
-            indent_output();
-            fprintf(output, "break;\n");
             break;
         case Continue_kind:
-            indent_output();
-            fprintf(output, "continue;\n");
             break;
         case FuncDef_kind:
-            insert_incomplete_func_to_table(s->funcdef.name,s);
-            break;
+            return assign_type_to_funcdef_stmt(s);
         case ClassDef_kind:
             insert_class_to_table(s->classdef.name);
             enter_new_scope_for_class();
@@ -1660,7 +1686,7 @@ erase_addr_for_expr(expr_ty e) {
     }
 }
 
-
+/*
 static void
 erase_addr_for_stmt(stmt_ty s) {
     int i;
@@ -1724,8 +1750,6 @@ erase_addr_for_stmt(stmt_ty s) {
             break;
     }
 }
-
-
 static void
 builtin_func_handler(expr_ty e){
     char* name = e->call.func->name.id;
@@ -1772,3 +1796,4 @@ builtin_func_handler(expr_ty e){
 
     }
 }
+*/
