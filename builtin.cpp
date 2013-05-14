@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <vector>
+#include <functional>
 using namespace std;
 
 class pyobj;
@@ -41,15 +42,7 @@ class _py_str: public pyobj {
             return new _py_str(ret);
         }
 
-        _py_str* mul(pyobj* o) {
-            _py_int* oo = dynamic_cast<_py_int*>(o);
-            long long time = oo->getInt();
-            string ret;
-            for(long long i = 0; i < time; i ++ ) {
-                ret += this->s;
-            }
-            return new _py_str(ret);
-        }
+        _py_str* mul(pyobj* o);
         const char* str() { return s.c_str(); }
 
     private:
@@ -93,6 +86,7 @@ class _py_int: public pyobj {
 class _py_list: public pyobj, public  pyiter{
     public:
         _py_list(int count, ...) : elements(0), pointer (0) {
+            if(count == 0) return ;
             va_list ap;
             va_start(ap, count);
             for(int i = 0; i < count; i ++ )
@@ -113,10 +107,10 @@ class _py_list: public pyobj, public  pyiter{
             }
             return ret;
         }
- 
+
         _py_list* mul(pyobj* a) {
             _py_int * aa = dynamic_cast<_py_int*> (a);
-            long long cnt = aa->getInt(); 
+            long long cnt = aa->getInt();
             _py_list * ret = new _py_list(0);
 
             for(long long i = 0; i < cnt; i ++ ) {
@@ -125,7 +119,7 @@ class _py_list: public pyobj, public  pyiter{
             }
             return ret;
         }
-    
+
         void* append(pyobj* o) {
             elements.push_back(o);
             return NULL;
@@ -140,7 +134,7 @@ class _py_list: public pyobj, public  pyiter{
             if(pointer == elements.size()) { pointer = 0; return 0; }
             else return 1;
         }
-        
+
         pyobj* next() {
             return elements[pointer++];
         }
@@ -170,7 +164,7 @@ class _py_tuple: public pyobj, public pyiter{
                 elements.push_back(va_arg(ap, pyobj*));
             va_end(ap);
         };
-        
+
         void* append(pyobj* o) {
             elements.push_back(o);
             return NULL;
@@ -189,6 +183,33 @@ class _py_tuple: public pyobj, public pyiter{
         std::vector<pyobj*> elements;
 };
 
+template<class Ret, typename... types>
+class _py_lambda :public pyobj {
+    public:
+        _py_lambda(string s, Ret(*f)(types...)):name(s), func(f) {}
+        Ret operator()(types... args) {
+            return func(args...);
+        }
+        _py_str* __repr__() {
+            string s = "<function " + name + ">";
+            return new _py_str(s);
+        }
+    private:
+        function<Ret(types...)> func;
+        string name;
+
+};
+
+_py_str* _py_str::mul(pyobj* o) {
+    _py_int* oo = dynamic_cast<_py_int*>(o);
+    long long time = oo->getInt();
+    string ret;
+    for(long long i = 0; i < time; i ++ ) {
+        ret += this->s;
+    }
+    return new _py_str(ret);
+}
+
 void print(pyobj* dest, int nl, int cnt,  ...) {
     va_list ap;
     va_start(ap, cnt);
@@ -202,6 +223,11 @@ void print(pyobj* dest, int nl, int cnt,  ...) {
     }
 }
 
+pyobj* add( pyobj* x, pyobj* y) {
+    return x->add(y);
+}
+
+
 int main() {
     /*
     _py_list * x = new _py_list(1, new _py_int(1));
@@ -210,10 +236,27 @@ int main() {
     x->extend(y);
     print (NULL, 1, 2, x, y);
     */
+    _py_lambda<pyobj*, pyobj*, pyobj*> l("add", add);
+    _py_int * z = dynamic_cast<_py_int*>(l(new _py_int(1), new _py_int(2)));
+    //_py_list * y = new _py_list(2, new _py_int(2),new _py_lambda<pyobj*, pyobj*, pyobj*>("add", add));
+    print(NULL, 1, 1, z);
+    /*
     _py_str * x = new _py_str("what");
     x = x->mul(new _py_int(2));
     print(NULL, 1, 1, x);
 
+    */
+    /*
+    _py_int * x = new _py_int(1);
+    _py_int * y = new _py_int(2);
+    _py_int * z = add(x, y);
+    print(NULL, 1, 1, z);
+
+    _py_list * a = new _py_list(2, new _py_str("what"), new _py_int(2));
+    _py_list * b = new _py_list(1, new _py_int(3));
+    _py_list * c = add(a, b);
+    print (NULL, 1, 3, a, b, c);
+    */
     /*
     _py_int * x = new _py_int(1);
     _py_int * y = x;
@@ -234,18 +277,19 @@ int main() {
     /* x = [x+x for in [1, 2]]
      * print x
      */
+
     /*
     _py_list * z = NULL;
     _py_list * _listcomp_t0 = new _py_list(0);
-    { 
-        _py_list* _listcomp_iter0 = new _py_list(2, new _py_int(1), new _py_int(2));
+    {
+        _py_list* _listcomp_iter0 = new _py_list(3, new _py_int(1), new _py_int(2), new _py_int(3));
         for(; _listcomp_iter0->has_next(); ) {
             pyobj * p = _listcomp_iter0->next();
-            _listcomp_t0->append(p);
+            _listcomp_t0->append(p->mul(p));
         }
     }
     z = _listcomp_t0;
-    print(NULL, 1, z);
+    print(NULL, 1, 1, z);
     */
     return 0;
 }
