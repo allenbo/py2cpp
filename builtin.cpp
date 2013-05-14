@@ -9,7 +9,7 @@ class pyobj;
 class _py_str;
 class _py_int;
 class _py_list;
-template<class Ret, typename... types> class _py_lambda;
+class _py_lambda;
 
 #define POBJ pyobj*
 #define PINT _py_int*
@@ -25,6 +25,9 @@ template<class Ret, typename... types> class _py_lambda;
 #define DInt(x) dynamic_cast<_py_int*>(x)
 #define DStr(x) dynamic_cast<_py_str*>(x)
 #define DList(x) dynamic_cast<_py_list*>(x)
+#define DLambda(x) dynamic_cast<_py_lambda*>(x)
+
+#define LAMBDA(x) Lambda(#x, (void*)x)
 
 class pyobj {
     public:
@@ -204,27 +207,27 @@ class _py_tuple: public pyobj, public pyiter{
         std::vector<pyobj*> elements;
 };
 
-template<class Ret, typename... types>
 class _py_lambda : public pyobj {
     public:
-        _py_lambda(string s, Ret(*f)(types...)):name(s), func(f) {}
+        _py_lambda(string s, void* f):name(s), func(f) { }
 
-
-        Ret operator()(types... args) {
-            return func(args...);
+        template<typename... types>
+        POBJ operator()(types... args) {
+            typedef POBJ(*FNT) (types...);
+            function<POBJ(types...)> f = (FNT)func;
+            return f(args...);
         }
-
 
         _py_str* __repr__() {
             string s = "<function " + name + ">";
             return new _py_str(s);
         }
     private:
-        function<Ret(types...)> func;
+        //function<Ret(types...)> func;
+        void* func;
         string name;
 
 };
-
 _py_str* _py_str::mul(pyobj* o) {
     _py_int* oo = dynamic_cast<_py_int*>(o);
     long long time = oo->getInt();
@@ -256,13 +259,8 @@ PLIST range(PINT start, PINT stop = NULL, PINT step = NULL) {
     long long sa = 0;
     long long sp = 0;
     long long st = 1;
-    if( NULL == stop) {
-        sp = start->getInt();
-    }
-    else {
-        sa = start->getInt();
-        sp = stop->getInt();
-    }
+    sp = stop->getInt();
+    if(NULL != start) sa = start->getInt();
     if(NULL != step) st = step->getInt();
     PLIST l = List(0);
     for(long long i  = sa; i < sp ; i += st) {
@@ -340,10 +338,16 @@ int main() {
     PLIST x = range(Int(5));
     print(NULL, 1, 1, x);
 */
+    /*
     PLIST x = List(2, Lambda<PLIST, PINT, PINT, PINT>("range", range), Int(2));
     PLIST y = (*(dynamic_cast<_py_lambda<PLIST, PINT, PINT, PINT>*>(x->get(Int(0)))))(Int(0), Int(5), Int(1));
     print(NULL, 1, 1, y);
     y->append(x);
+    print(NULL, 1, 1, y);
+    */
+    PLIST x = List(2, LAMBDA(add), LAMBDA(range));
+    print(NULL, 1, 1, x);
+    PLIST y = DList((*DLambda(x->get(Int(1))))(NULL, Int(6), NULL));
     print(NULL, 1, 1, y);
     return 0;
 }
