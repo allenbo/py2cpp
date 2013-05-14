@@ -9,6 +9,22 @@ class pyobj;
 class _py_str;
 class _py_int;
 class _py_list;
+template<class Ret, typename... types> class _py_lambda;
+
+#define POBJ pyobj*
+#define PINT _py_int*
+#define PSTR _py_str*
+#define PLIST _py_list*
+#define PLAMBDA _py_lambda*
+
+#define Int new _py_int
+#define Str new _py_str
+#define List new _py_list
+#define Lambda new _py_lambda
+
+#define DInt(x) dynamic_cast<_py_int*>(x)
+#define DStr(x) dynamic_cast<_py_str*>(x)
+#define DList(x) dynamic_cast<_py_list*>(x)
 
 class pyobj {
     public:
@@ -22,6 +38,7 @@ class pyiter {
     public:
         virtual bool has_next() = 0;
         virtual pyobj* next() = 0;
+        virtual pyobj*& get(_py_int * ind) = 0;
 };
 
 class _py_str: public pyobj {
@@ -139,6 +156,10 @@ class _py_list: public pyobj, public  pyiter{
             return elements[pointer++];
         }
 
+        pyobj*& get(_py_int* ind) {
+            long long i = ind->getInt();
+            return elements[i];
+        }
         _py_str* __repr__() {
             pyobj* ret = new _py_str("[");
             for(int i = 0; i < elements.size(); i ++ ) {
@@ -184,12 +205,16 @@ class _py_tuple: public pyobj, public pyiter{
 };
 
 template<class Ret, typename... types>
-class _py_lambda :public pyobj {
+class _py_lambda : public pyobj {
     public:
         _py_lambda(string s, Ret(*f)(types...)):name(s), func(f) {}
+
+
         Ret operator()(types... args) {
             return func(args...);
         }
+
+
         _py_str* __repr__() {
             string s = "<function " + name + ">";
             return new _py_str(s);
@@ -227,6 +252,24 @@ pyobj* add( pyobj* x, pyobj* y) {
     return x->add(y);
 }
 
+PLIST range(PINT start, PINT stop = NULL, PINT step = NULL) {
+    long long sa = 0;
+    long long sp = 0;
+    long long st = 1;
+    if( NULL == stop) {
+        sp = start->getInt();
+    }
+    else {
+        sa = start->getInt();
+        sp = stop->getInt();
+    }
+    if(NULL != step) st = step->getInt();
+    PLIST l = List(0);
+    for(long long i  = sa; i < sp ; i += st) {
+        l->append(Int(i));
+    }
+    return l;
+}
 
 int main() {
     /*
@@ -236,10 +279,10 @@ int main() {
     x->extend(y);
     print (NULL, 1, 2, x, y);
     */
-    _py_lambda<pyobj*, pyobj*, pyobj*> l("add", add);
-    _py_int * z = dynamic_cast<_py_int*>(l(new _py_int(1), new _py_int(2)));
-    //_py_list * y = new _py_list(2, new _py_int(2),new _py_lambda<pyobj*, pyobj*, pyobj*>("add", add));
-    print(NULL, 1, 1, z);
+    //_py_lambda<pyobj*, pyobj*, pyobj*> l("add", add);
+    //_py_int * z = dynamic_cast<_py_int*>(l(new _py_int(1), new _py_int(2)));
+    //_py_list * y = List(2, Int(2), Lambda<pyobj*, pyobj*, pyobj*>("add", add));
+    //print(NULL, 1, 1, y);
     /*
     _py_str * x = new _py_str("what");
     x = x->mul(new _py_int(2));
@@ -278,11 +321,11 @@ int main() {
      * print x
      */
 
-    /*
-    _py_list * z = NULL;
-    _py_list * _listcomp_t0 = new _py_list(0);
+/*
+    PLIST z = NULL;
+    PLIST _listcomp_t0 = List(0);
     {
-        _py_list* _listcomp_iter0 = new _py_list(3, new _py_int(1), new _py_int(2), new _py_int(3));
+        PLIST _listcomp_iter0 = List(3, Int(1), Int(2), Int(3));
         for(; _listcomp_iter0->has_next(); ) {
             pyobj * p = _listcomp_iter0->next();
             _listcomp_t0->append(p->mul(p));
@@ -290,6 +333,17 @@ int main() {
     }
     z = _listcomp_t0;
     print(NULL, 1, 1, z);
-    */
+
+    PINT y = DInt(z->get(Int(1)));
+    y = Int(9);
+    print(NULL, 1, 1, z);
+    PLIST x = range(Int(5));
+    print(NULL, 1, 1, x);
+*/
+    PLIST x = List(2, Lambda<PLIST, PINT, PINT, PINT>("range", range), Int(2));
+    PLIST y = (*(dynamic_cast<_py_lambda<PLIST, PINT, PINT, PINT>*>(x->get(Int(0)))))(Int(0), Int(5), Int(1));
+    print(NULL, 1, 1, y);
+    y->append(x);
+    print(NULL, 1, 1, y);
     return 0;
 }
