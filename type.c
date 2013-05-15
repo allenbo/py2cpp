@@ -165,294 +165,53 @@ assign_type_to_stmt(stmt_ty s) {
         case FuncDef_kind:
             return assign_type_to_funcdef_stmt(s);
         case ClassDef_kind:
-            insert_class_to_table(s->classdef.name);
-            enter_new_scope_for_class();
-            assign_type_to_ast(s->classdef.body);
-            exit_scope();
-            break;
+            return assign_type_to_classdef_stmt(s);
         case Return_kind:
-            assign_type_to_expr(s->ret.value);
-            if(s->ret.value->isplain)
-                stmt_for_expr(s->ret.value);
-            else
-                eliminate_python_unique_for_expr(s->ret.value);
-            indent_output();
-            fprintf(output, "return %s;\n", s->ret.value->addr);
-            func_ret = s->ret.value->e_type;
-
-            erase_addr_for_stmt(s);
-            break;
+            return assign_type_to_return_stmt(s);
         case Delete_kind:
-            break;
+            return assign_type_to_delete_stmt(s);
         case Assign_kind:
-            {
-                int n_target = s->assign.n_target;
-                expr_ty * targets = s->assign.targets;
-                expr_ty value = s->assign.value;
-                assign_type_to_expr(value);
-                assign_type_to_expr(targets[0]);
-
-                if(targets[0]->isplain)
-                    stmt_for_expr(targets[0]);
-                else
-                    eliminate_python_unique_for_expr(targets[0]);
-
-
-                strcpy(value->addr, targets[0]->addr);
-
-                if(value->isplain)
-                    stmt_for_expr(value);
-                else
-                    eliminate_python_unique_for_expr(value);
-
-                if(targets[0]->kind == Name_kind)
-                    insert_to_current_table(targets[0]->name.id,
-                            value->e_type, SE_VARIABLE_KIND);
-                int i ;
-                for(i= 1; i < n_target; i ++ ){
-                    assign_type_to_expr(targets[i]);
-                    if(targets[i]->kind == Name_kind)
-                        insert_to_current_table(targets[i]->name.id,
-                            value->e_type, SE_VARIABLE_KIND);
-                    if(targets[i]->isplain)
-                        stmt_for_expr(targets[i]);
-                    else
-                        eliminate_python_unique_for_expr(targets[i]);
-
-                    indent_output();
-                    switch(value->e_type->kind) {
-                        case INTEGER_KIND:
-                        case FLOAT_KIND:
-                        case STRING_KIND:
-                        case BOOLEAN_KIND:
-                            if(search_type_for_name(targets[i]->addr) == NULL)
-                                fprintf(output, "%s %s = %s;\n", value->e_type->name, targets[i]->addr, value->addr);
-                            else
-                                fprintf(output, "%s = %s;\n",  targets[i]->addr, value->addr);
-                            break;
-                        case LIST_KIND:
-                            if(search_type_for_name(targets[i]->addr) == NULL)
-                                fprintf(output, "%s & %s = %s;\n", value->e_type->name,
-                                    targets[i]->addr, value->addr);
-                            else
-                                fprintf(output, "%s = %s;\n", targets[i]->addr, value->addr);
-
-                            break;
-                    }
-                }
-                erase_addr_for_stmt(s);
-            }
-            break;
+            return assign_type_to_assign_stmt(s);
         case AugAssign_kind:
-            {
-                expr_ty value = s->augassignstmt.value;
-                expr_ty target = s->augassignstmt.target;
-                operator_ty op = s->augassignstmt.op;
-
-                expr_ty* targets = (expr_ty*) malloc (sizeof(expr_ty));
-                targets[0] = target;
-                expr_ty v = (expr_ty) malloc(sizeof(struct _expr));
-                v->kind = BinOp_kind;
-                v->binop.op = op;
-                v->binop.left= (expr_ty) malloc (sizeof(struct _expr));
-                memcpy(v->binop.left, target, sizeof(struct _expr));
-                v->binop.right = value;
-                stmt_ty tmp = Assign_stmt(1, targets, v, value->lineno, value->col_offset);
-
-                assign_type_to_stmt(tmp);
-
-                erase_addr_for_stmt(s);
-            }
-            break;
+            return assign_type_to_augassign_stmt(s);
         case Print_kind:
-            {
-                int i ;
-                for(i = 0; i < s->print.n_value; i ++ ) {
-                    assign_type_to_expr(s->print.values[i]);
-                }
-                char* dest = "cout";
-                if(s->print.dest!= NULL) {
-                    eliminate_python_unique_for_expr(s->print.dest);
-                    dest = s->print.dest->addr;
-                }
-
-                for(i = 0; i < s->print.n_value; i ++ ) {
-                    if(s->print.values[i]->kind == Call_kind)
-                        strcpy(s->print.values[i]->addr, newTemp());
-                    if(s->print.values[i]->isplain)
-                        stmt_for_expr(s->print.values[i]);
-                    else
-                        eliminate_python_unique_for_expr(s->print.values[i]);
-                }
-
-                int fcout = 0;
-                int end = 0;
-                for(i = 0; i < s->print.n_value; i ++ ) {
-                    if(s->print.values[i]->e_type->kind == LIST_KIND) {
-                        if(end == 1)  printf(";\n");
-                        indent_output();
-                        fprintf(output, "output<%s>(%s);\n",
-                                dest, s->print.values[i]->addr);
-                        indent_output();
-                        fprintf(output, "cout<< \" \";\n");
-                        fcout = 0;
-                        end = 1;
-                    }
-                    else {
-                        if(fcout == 0 ) {
-                            indent_output();
-                            fprintf(output, "%s << %s << \" \"", dest, s->print.values[i]->addr);
-                            fcout = 1;
-                        }else {
-                            fprintf(output, " << %s << \" \"", s->print.values[i]->addr);
-                        }
-                    }
-                }
-                if(fcout == 0) {
-                    indent_output();
-                    fprintf(output, "cout");
-                }
-                if(s->print.newline_mark == 1) {
-                    fprintf(output, " << endl;\n");
-                }else {
-                    fprintf(output, ";\n");
-                }
-                erase_addr_for_stmt(s);
-            }
-            break;
+            return assign_type_to_print_stmt(s);
         case For_kind:
-            assign_type_to_expr(s->forstmt.target);
-            assign_type_to_expr(s->forstmt.iter);
-            s->forstmt.target->e_type = s->forstmt.iter->e_type->base;
-            insert_to_current_table(s->forstmt.target->name.id,
-                    s->forstmt.target->e_type, SE_VARIABLE_KIND);
-
-            if(s->forstmt.target->isplain)
-                stmt_for_expr(s->forstmt.target);
-            else
-                eliminate_python_unique_for_expr(s->forstmt.target);
-            if(s->forstmt.iter->isplain)
-                stmt_for_expr(s->forstmt.iter);
-            else
-                eliminate_python_unique_for_expr(s->forstmt.iter);
-
-
-            char* iter = newIterator();
-            indent_output();
-            fprintf(output, "int %s = 0;\n", iter);
-            indent_output();
-            fprintf(output, "for(%s %s : %s) {\n", s->forstmt.target->e_type->name,
-                    s->forstmt.target->addr, s->forstmt.iter->addr);
-            level ++;
-            assign_type_to_ast(s->forstmt.body);
-
-            indent_output();
-            fprintf(output, "%s ++;\n", iter);
-            level --;
-            indent_output();
-            fprintf(output, "}\n");
-
-            if(s->forstmt.orelse != NULL) {
-                indent_output();
-                fprintf(output, "if(%s == %s.size()) {\n", iter, s->forstmt.iter->addr);
-                level++;
-                assign_type_to_ast(s->forstmt.orelse);
-                level--;
-                indent_output();
-                fprintf(output, "}\n");
-            }
-            erase_addr_for_stmt(s);
-            break;
+            return assign_type_to_for_stmt(s);
         case While_kind:
-            {
-                assign_type_to_expr(s->whilestmt.test);
-                if(s->whilestmt.test->isplain)
-                    stmt_for_expr(s->whilestmt.test);
-                else
-                    eliminate_python_unique_for_expr(s->whilestmt.test);
-
-                char* iter = newIterator();
-                indent_output();
-                fprintf(output, "int %s = 1;\n", iter);
-                indent_output();
-                fprintf(output, "while( %s ) {\n", s->whilestmt.test->addr);
-                level ++;
-                indent_output();
-                fprintf(output, "%s = 0;\n", iter);
-                assign_type_to_ast(s->whilestmt.body);
-                indent_output();
-                fprintf(output, "%s = 1;\n", iter);
-                level --;
-                indent_output();
-                fprintf(output, "}\n");
-
-                if(s->whilestmt.orelse != NULL) {
-                    indent_output();
-                    fprintf(output, "if(%s == 1) {\n", iter);
-                    level ++;
-                    assign_type_to_ast(s->whilestmt.orelse);
-                    level --;
-                    indent_output();
-                    fprintf(output, "}\n");
-                }
-                erase_addr_for_stmt(s);
-            }
-            break;
+            return assign_type_to_while_stmt(s);
         case If_kind:
-            assign_type_to_expr(s->ifstmt.test);
-            if(s->ifstmt.test->isplain)
-                stmt_for_expr(s->ifstmt.test);
-            else
-                eliminate_python_unique_for_expr(s->ifstmt.test);
-            indent_output();
-            fprintf(output, "if(%s) {\n", s->ifstmt.test->addr);
-            level ++;
-            assign_type_to_ast(s->ifstmt.body);
-            level --;
-            indent_output();
-            fprintf(output, "}\n");
-            if(s->ifstmt.orelse != NULL) {
-                indent_output();
-                fprintf(output, "else {\n");
-                level++;
-                assign_type_to_ast(s->ifstmt.orelse);
-                level --;
-                indent_output();
-                fprintf(output, "}\n");
-            }
-            erase_addr_for_stmt(s);
-            break;
+            return assign_type_to_if_stmt(s);
         case With_kind:
-            break;
+            return assign_type_to_with_stmt(s);
         case Raise_kind:
-            break;
+            return assign_type_to_raise_stmt(s);
         case Try_kind:
-            break;
+            return assign_type_to_try_stmt(s);
         case Assert_kind:
-            assign_type_to_expr(s->assert.test);
-            if(s->assert.test->isplain)
-                stmt_for_expr(s->assert.test);
-            else
-                eliminate_python_unique_for_expr(s->assert.test);
-            indent_output();
-            fprintf(output, "assert(%s);\n", s->assert.test->addr);
-            erase_addr_for_stmt(s);
-            break;
+            return assign_type_to_assert_stmt(s);
         case Global_kind:
-            break;
+            return assign_type_to_assert_stmt(s);
         case Expr_kind:
-            assign_type_to_expr(s->exprstmt.value);
-            if(s->exprstmt.value->isplain) {
-                stmt_for_expr(s->exprstmt.value);
-            }
-            else {
-                eliminate_python_unique_for_expr(s->exprstmt.value);
-            }
-            indent_output();
-            fprintf(output, "%s;\n", s->exprstmt.value->addr);
-            erase_addr_for_stmt(s);
-            break;
+            return assign_type_to_expr_stmt(s);
     }
+}
+
+static void
+assign_type_to_funcdef_stmt(s){
+}
+
+static void
+assign_type_to_classdef_stmt(s) {
+}
+
+static void
+assign_type_to_return_stmt(s) {
+}
+
+static void
+assign_type_to_assign_stmt(s) {
+
 }
 
 
