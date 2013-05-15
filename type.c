@@ -33,12 +33,12 @@ FILE* pop_fd() {
 FILE* output = NULL;
 
 
-struct type t_unknown  = {UNKNOWN_KIND,  "void"};
-struct type t_char = {CHAR_KIND, "char"};
-struct type t_boolean = {BOOLEAN_KIND, "bool"};
-struct type t_integer = {INTEGER_KIND, "int"};
-struct type t_float = {FLOAT_KIND, "float"};
-struct type t_string = {STRING_KIND,  "string"};
+struct type t_unknown  = {UNKNOWN_KIND,  "VOID"};
+struct type t_char = {CHAR_KIND, "CHAR"};
+struct type t_boolean = {BOOLEAN_KIND, "BOOL"};
+struct type t_integer = {INTEGER_KIND, "INT"};
+struct type t_float = {FLOAT_KIND, "FLOAT"};
+struct type t_string = {STRING_KIND,  "STR"};
 
 static void assign_type_to_stmt(stmt_ty s);
 static void assign_type_to_expr(expr_ty e);
@@ -71,7 +71,7 @@ static void assign_type_to_dict_expr(expr_ty e);
 static void assign_type_to_set_expr(expr_ty e);
 static void assign_type_to_dictcomp_expr(expr_ty e);
 static void assign_type_to_setcomp_expr(expr_ty e);
-static void assign_type_to_generatorexp_expr(expr_ty e);
+static void assign_type_to_generator_expr(expr_ty e);
 static void assign_type_to_yield_expr(expr_ty e);
 static void assign_type_to_compare_expr(expr_ty e);
 static void assign_type_to_call_expr(expr_ty e);
@@ -96,12 +96,22 @@ void indent_output() {
 
 
 type_ty
-create_list_type(type_ty t) {
+create_list_type(int n) {
     type_ty tp = (type_ty) malloc ( sizeof(struct type) );
-    sprintf(tp->name, "vector< %s >", t->name);
+    sprintf(tp->name, "LIST");
     tp->kind = LIST_KIND;
-    tp->base = t;
+    tp->n_elt = n;
+
+    tp->elts = (type_ty*) malloc (sizeof(type_ty) * n);
     return tp;
+}
+
+int
+list_set_type(type_ty list, int i, type_ty t) {
+    if(list == NULL || list->elts == NULL || list->n_elt <= i) {
+        return 0;
+    }
+    list->elts[i] = t;
 }
 
 char* get_op_literal(operator_ty op) {
@@ -142,6 +152,10 @@ char* get_unaryop_literal(unaryop_ty op) {
 
 static int
 type_compare(type_ty t1, type_ty t2) {
+    if(t1 == t2) return 0;
+    if(t1->kind == t2->kind) return 0;
+    if(t1->kind == INTEGER_KIND) return -1;
+    return 1;
 }
 
 static type_ty
@@ -198,315 +212,253 @@ assign_type_to_stmt(stmt_ty s) {
 }
 
 static void
-assign_type_to_funcdef_stmt(s){
+assign_type_to_funcdef_stmt(stmt_ty s){
 }
 
 static void
-assign_type_to_classdef_stmt(s) {
+assign_type_to_classdef_stmt(stmt_ty s) {
 }
 
 static void
-assign_type_to_return_stmt(s) {
+assign_type_to_return_stmt(stmt_ty s) {
 }
 
 static void
-assign_type_to_assign_stmt(s) {
-
+assign_type_to_delete_stmt(stmt_ty s) {
 }
 
+static void
+assign_type_to_assign_stmt(stmt_ty s) {
+    expr_ty value = s->assign.value;
+    int n = s->assign.n_target;
+    expr_ty * targets = s->assign.targets;
+
+    assign_type_to_expr(value);
+
+    int i;
+    for(i = 0; i < n; i ++ ) {
+        assign_type_to_expr(targets[i]);
+        if(targets[i]->e_type == &t_unknown) {
+            /* The the variable is not in the symbol table
+             * which means we has to declare the variable
+             */
+            targets[i]->e_type = value->e_type;
+            install_variable(targets[i]);
+        }else if(type_compare(targets[i]->e_type, value->e_type) != 0){
+            /* Sometimes types of value and target are not the same
+             * Like:
+             *   x = 1      <== type of x is int
+             *   x = 'str'  <== type of x is int and type of 'str' is str
+             * In this case, we have to declare x aggin, but not use the same
+             * name of x, so I attach a flag to x, when it's declared, it
+             * should look like PSTR sx = Str('str');
+             */
+            if(targets[i]->dable == 1) {
+                targets[i]->e_type = value->e_type;
+                install_variable_full(targets[i], SE_REUSE_KIND);
+            }
+        }
+    }
+}
+
+static void
+assign_type_to_augassign_stmt(stmt_ty s){
+}
+static void
+assign_type_to_print_stmt(stmt_ty s){
+}
+static void
+assign_type_to_for_stmt(stmt_ty s){
+}
+static void
+assign_type_to_while_stmt(stmt_ty s){
+}
+static void
+assign_type_to_if_stmt(stmt_ty s){
+}
+static void
+assign_type_to_with_stmt(stmt_ty s){
+}
+static void
+assign_type_to_raise_stmt(stmt_ty s){
+}
+static void
+assign_type_to_try_stmt(stmt_ty s){
+}
+static void
+assign_type_to_assert_stmt(stmt_ty s){
+}
+static void
+assign_type_to_global_stmt(stmt_ty s){
+}
+static void
+assign_type_to_expr_stmt(stmt_ty s){
+}
 
 static void
 assign_type_to_expr(expr_ty e) {
     int i;
     switch(e->kind) {
         case BoolOp_kind:
-            {
-                int i, n = e->boolop.n_value;
-                e->isplain = 1;
-                for(i = 0; i < n; i ++ )  {
-                    assign_type_to_expr(e->boolop.values[i]);
-                    e->isplain &= e->boolop.values[i]->isplain;
-                }
-                e->e_type = e->boolop.values[0]->e_type;
-            }
-            break;
+            return assign_type_to_boolop_expr(e);
         case BinOp_kind:
-            assign_type_to_expr(e->binop.left);
-            assign_type_to_expr(e->binop.right);
-            e->isplain = e->binop.left->isplain & e->binop.right->isplain;
-
-            if(e->binop.op == Mult &&
-                    (e->binop.left->e_type->kind == STRING_KIND ||
-                     e->binop.right->e_type->kind == STRING_KIND)) {
-                e->isplain = 0;
-            }
-            if(e->binop.op == Pow) {
-                e->isplain = 0;
-            }
-            if(e->binop.left->e_type->kind == LIST_KIND) {
-                e->isplain = 0;
-                e->e_type = e->binop.left->e_type;
-            }
-            else {
-                e->e_type = max_type(e->binop.left->e_type, e->binop.right->e_type);
-            }
-            break;
+            return assign_type_to_binop_expr(e);
         case UnaryOp_kind:
-            assign_type_to_expr(e->unaryop.operand);
-            if(e->unaryop.op == Not)
-                e->e_type = &t_boolean;
-            else
-                e->e_type = e->unaryop.operand->e_type;
-            e->isplain = 1;
-            break;
+            return assign_type_to_unaryop_expr(e);
         case Lambda_kind:
-            break;
+            return assign_type_to_lambda_expr(e);
         case IfExp_kind:
-            break;
+            return assign_type_to_ifexp_expr(e);
         case ListComp_kind:
-            e->isplain = 0;
-            for(i = 0; i < e->listcomp.n_com; i ++ ) {
-                assign_type_to_comprehension(e->listcomp.generators[i]);
-            }
-            assign_type_to_expr(e->listcomp.elt);
-            e->e_type = create_list_type(e->listcomp.elt->e_type);
-            break;
+            return assign_type_to_listcomp_expr(e);
         case Dict_kind:
-            break;
+            return assign_type_to_dict_expr(e);
         case Set_kind:
-            break;
+            return assign_type_to_set_expr(e);
         case SetComp_kind:
-            break;
+            return assign_type_to_setcomp_expr(e);
         case DictComp_kind:
-            break;
+            return assign_type_to_dictcomp_expr(e);
         case GeneratorExp_kind:
-            break;
+            return assign_type_to_generator_expr(e);
         case Yield_kind:
-            break;
+            return assign_type_to_yield_expr(e);
         case Compare_kind:
-            assign_type_to_expr(e->compare.left);
-            e->isplain = e->compare.left->isplain;
-            for(i = 0; i< e->compare.n_comparator; i ++ ) {
-                assign_type_to_expr(e->compare.comparators[i]);
-                switch(e->compare.ops[i]) {
-                    case Is:
-                    case IsNot:
-                    case In:
-                    case NotIn:
-                        e->isplain = 0;break;
-                    default:
-                        e->isplain = e->isplain && e->compare.comparators[i]->isplain;break;
-                }
-            }
-            e->e_type = &t_boolean;
-            if(e->compare.n_comparator != 1) {
-                e->isplain = 0;
-            }
-            break;
+            return assign_type_to_compare_expr(e);
         case Call_kind:
-            {
-                char fullname[50] = "";
-                assign_type_to_expr(e->call.func);
-                if(e->call.func->isplain)
-                    stmt_for_expr(e->call.func);
-                else
-                    eliminate_python_unique_for_expr(e->call.func);
-
-                strcpy(fullname, e->call.func->addr);
-
-                e->isplain = 1;
-                if(e->call.func->kind == Name_kind) {
-                    int i;
-                    for(i = 0; i < e->call.n_arg; i ++ ) {
-                        assign_type_to_expr(e->call.args[i].args);
-                        if(e->call.args[i].args->isplain == 0)
-                            e->isplain = 0;
-                        switch(e->call.args[i].args->e_type->kind) {
-                            case BOOLEAN_KIND:
-                                strcat(fullname, "_b");break;
-                            case CHAR_KIND:
-                                strcat(fullname, "_c");break;
-                            case INTEGER_KIND:
-                                strcat(fullname, "_i");break;
-                            case FLOAT_KIND:
-                                strcat(fullname, "_f");break;
-                            case STRING_KIND:
-                                strcat(fullname, "_s");break;
-                            case LIST_KIND:
-                                strcat(fullname, "_l");break;
-                            default:
-                                break;
-                        }
-                    }
-
-                    type_ty tp = search_type_for_name(fullname);
-                    if(tp == NULL) {
-                        stmt_ty st = search_stmt_for_name(e->call.func->name.id);
-                        if(NULL != st) {
-                            insert_to_func_table(fullname, &t_unknown, SE_FUNCTION_KIND);
-                            strcpy(st->funcdef.fullname, fullname);
-                            push_type_to_arguments(st, e);
-                            eliminate_python_unique_for_stmt(st);
-                            e->e_type = func_ret;
-                            change_func_ret_type(fullname, func_ret);
-                            strcpy(e->call.fullname, e->call.func->name.id);
-                            func_ret = NULL;
-                        }else {
-                            /* builtin function */
-                            builtin_func_handler(e);
-                        }
-                    }
-                    else {
-                        e->e_type = tp;
-                        strcpy(e->call.fullname, e->call.func->name.id);
-                    }
-                }
-                else {
-                    expr_ty tf = e->call.func;
-                    if(tf->attribute.value->isplain)
-                        stmt_for_expr(tf->attribute.value);
-                    else
-                        eliminate_python_unique_for_expr(tf->attribute.value);
-                    if(tf->attribute.value->e_type->kind == LIST_KIND) {
-                        if(strcmp(tf->attribute.attr, "insert") == 0) {
-                            expr_ty name = expr_new();
-                            name->kind = Name_kind;
-                            sprintf(name->name.id, "%s.begin()", tf->attribute.value->addr);
-                            e->call.args[0].args = Binop_expr(name, Add, e->call.args[0].args, 0, 0);
-                            sprintf(e->call.fullname, "%s.insert", tf->attribute.value->addr);
-                        }else if(strcmp(tf->attribute.attr, "extend") == 0) {
-                            assign_type_to_expr(e->call.args[0].args);
-                            if(e->call.args[0].args->kind == Call_kind)
-                                strcpy(e->call.args[0].args->addr, newTemp());
-                            if(e->call.args[0].args->isplain)
-                                stmt_for_expr(e->call.args[0].args);
-                            else
-                                eliminate_python_unique_for_expr(e->call.args[0].args);
-                            sprintf(e->call.fullname, "%s.insert", tf->attribute.value->addr);
-                            e->call.n_arg = 3;
-
-                            expr_ty name1 = expr_new();
-                            name1->kind = Name_kind;
-                            sprintf(name1->name.id, "%s.end()", tf->attribute.value->addr);
-
-                            expr_ty name2 = expr_new();
-                            name2->kind = Name_kind;
-                            sprintf(name2->name.id, "%s.begin()", e->call.args[0].args->addr);
-
-                            expr_ty name3 = expr_new();
-                            name3->kind = Name_kind;
-                            sprintf(name3->name.id, "%s.end()", e->call.args[0].args->addr);
-
-                            free(e->call.args);
-                            e->call.args = (Parameter*) malloc (sizeof(Parameter) * 3);
-                            e->call.args[0].args = name1;
-                            e->call.args[1].args = name2;
-                            e->call.args[2].args = name3;
-                        }
-                        else if( strcmp(tf->attribute.attr, "sort") == 0) {
-                            sprintf(e->call.fullname, "sort");
-
-                            e->call.n_arg = 2;
-
-                            expr_ty name1 = expr_new();
-                            name1->kind = Name_kind;
-                            sprintf(name1->name.id, "%s.begin()", tf->attribute.value->addr);
-
-                            expr_ty name2 = expr_new();
-                            name2->kind = Name_kind;
-                            sprintf(name2->name.id, "%s.end()", tf->attribute.value->addr);
-
-                            e->call.args = (Parameter*) malloc (sizeof(Parameter) * 3);
-                            e->call.args[0].args = name1;
-                            e->call.args[1].args = name2;
-
-                        }
-                        else
-                            strcpy(e->call.fullname, fullname);
-                    }
-                    int i;
-                    for(i = 0; i < e->call.n_arg; i ++ ) {
-                        assign_type_to_expr(e->call.args[i].args);
-                        if(e->call.args[i].args->isplain == 0)
-                            e->isplain = 0;
-                    }
-
-                }
-                erase_addr_for_expr(e->call.func);
-            }
-            break;
+            return assign_type_to_call_expr(e);
         case Repr_kind:
-            break;
+            return assign_type_to_repr_expr(e);
         case Num_kind:
-            switch(e->num.kind) {
-                case INTEGER:
-                    e->e_type = &t_integer;
-                    break;
-                case DECIMAL:
-                    e->e_type = &t_float;
-                    break;
-            }
-            e->isplain = 1; break;
+            return assign_type_to_num_expr(e);
         case Str_kind:
-            e->e_type = &t_string;
-            e->isplain = 1;
-            break;
+            return assign_type_to_str_expr(e);
         case Attribute_kind:
-            assign_type_to_expr(e->attribute.value);
-            type_ty tp = search_type_for_name_and_class(e->attribute.attr,
-                    e->attribute.value->e_type->name);
-            e->e_type = tp;
-            e->isplain = 1;
-            break;
+            return assign_type_to_attribute_expr(e);
         case Subscript_kind:
-            {
-                assign_type_to_expr(e->sub.value);
-                e->e_type = e->sub.value->e_type;
-                e->isplain = 1;
-                int n = e->sub.n_slice;
-                int i;
-                for(i = 0; i < n; i ++ ) {
-                    slice_ty s = e->sub.slices[i];
-                    if(s->kind == Slice_kind) {
-                        if(s->slice.lower)
-                            assign_type_to_expr(s->slice.lower);
-                        if(s->slice.upper)
-                            assign_type_to_expr(s->slice.upper);
-                        if(s->slice.step)
-                            assign_type_to_expr(s->slice.step);
-                        e->isplain = 0;
-                    }else {
-                        assign_type_to_expr(s->index.value);
-                        e->e_type = e->e_type->base;
-                        e->isplain = s->index.value->isplain;
-                    }
-                }
-                if(e->sub.value->isplain == 0) {
-                    e->isplain = 0;
-                }
-            }
-            break;
+            return assign_type_to_subscript_expr(e);
         case Name_kind:
-            {
-                type_ty tp = search_type_for_name(e->name.id);
-                if(tp == NULL) {
-                    e->e_type = &t_unknown;
-                }else {
-                    e->e_type = tp;
-                }
-                e->isplain = 1;
-            }
-            break;
+            return assign_type_to_name_expr(e);
         case List_kind:
-            assign_type_to_expr(e->list.elts[0]);
-            e->e_type = create_list_type(e->list.elts[0]->e_type);
-            e->isplain = 0;
-            for(i = 0; i < e->list.n_elt; i ++ ) {
-                assign_type_to_expr(e->list.elts[i]);
-            }
-            break;
+            return assign_type_to_list_expr(e);
         case Tuple_kind:
-            break;
+            return assign_type_to_tuple_expr(e);
+    }
+}
+
+
+static void
+assign_type_to_boolop_expr(expr_ty e){
+}
+static void
+assign_type_to_binop_expr(expr_ty e) {
+    expr_ty left = e->binop.left;
+    expr_ty right = e->binop.right;
+    operator_ty op = e->binop.op;
+
+    assign_type_to_expr(left);
+    assign_type_to_expr(right);
+
+    if(type_compare(left->e_type, right->e_type) == 0)
+        e->e_type = left->e_type;
+    else {
+        if(op == Div) e->e_type = &t_float;
+        else e->e_type = max_type(left->e_type, right->e_type);
+    }
+}
+static void
+assign_type_to_unaryop_expr(expr_ty e){
+}
+static void
+assign_type_to_lambda_expr(expr_ty e){
+}
+static void
+assign_type_to_ifexp_expr(expr_ty e){
+}
+static void
+assign_type_to_listcomp_expr(expr_ty e){
+}
+static void
+assign_type_to_dict_expr(expr_ty e){
+}
+static void
+assign_type_to_set_expr(expr_ty e){
+}
+static void
+assign_type_to_dictcomp_expr(expr_ty e){
+}
+static void
+assign_type_to_setcomp_expr(expr_ty e){
+}
+static void
+assign_type_to_generator_expr(expr_ty e){
+}
+static void
+assign_type_to_yield_expr(expr_ty e){
+}
+static void
+assign_type_to_compare_expr(expr_ty e){
+}
+static void
+assign_type_to_call_expr(expr_ty e){
+}
+static void
+assign_type_to_repr_expr(expr_ty e){
+}
+
+static void
+assign_type_to_num_expr(expr_ty e){
+    if(e->num.kind == INTEGER)
+        e->e_type = &t_integer;
+    else
+        e->e_type = &t_float;
+}
+
+static void
+assign_type_to_str_expr(expr_ty e){
+    e->e_type = &t_string;
+}
+static void
+assign_type_to_attribute_expr(expr_ty e){
+}
+static void
+assign_type_to_subscript_expr(expr_ty e){
+}
+static void
+assign_type_to_name_expr(expr_ty e){
+    type_ty tp = NULL;
+    tp = lookup_variable(e->name.id);
+    e->e_type = tp;
+    e->dable = 1;
+}
+static void
+assign_type_to_list_expr(expr_ty e){
+    type_ty tp = NULL;
+    int i, n = e->list.n_elt;
+    e->e_type = create_list_type(n);
+
+    expr_ty t = NULL;
+    for(i = 0; i < n; i ++ ) {
+        t = e->list.elts[i];
+        assign_type_to_expr(t);
+        list_set_type(e->e_type, i, t->e_type);
+    }
+}
+static void
+assign_type_to_tuple_expr(expr_ty e){
+}
+
+
+static void
+push_type_to_expr(expr_ty e) {
+    if(e->kind == Tuple_kind) {
+        if(e->e_type->kind == TUPLE_KIND) {
+
+        }
+    }
+    else if(e->kind == Name_kind) {
+        //insert_to_current_table(e->name.id, e->e_type, SE_TEMP);
+        strcpy(e->addr, e->name.id);
     }
 }
 
@@ -520,30 +472,17 @@ assign_type_to_comprehension(comprehension_ty com) {
         assign_type_to_expr(com->tests[i]);
     }
     assign_type_to_expr(iter);
-
+/*
     if(iter->e_type->kind == LIST_KIND) {
         target->e_type = iter->e_type->base;
     }else if(iter->e_type->kind ==DICT_KIND) {
         target->e_type = iter->e_type->kbase;
     }
-
+*/
     push_type_to_expr(target);
 }
 
 
-
-static void
-push_type_to_expr(expr_ty e) {
-    if(e->kind == Tuple_kind) {
-        if(e->e_type->kind == TUPLE_KIND) {
-
-        }
-    }
-    else if(e->kind == Name_kind) {
-        insert_to_current_table(e->name.id, e->e_type, SE_TEMP);
-        strcpy(e->addr, e->name.id);
-    }
-}
 
 static void
 push_type_to_arguments(stmt_ty st, expr_ty e) {
@@ -563,996 +502,3 @@ assign_type_to_ast(stmt_seq* ss) {
         assign_type_to_stmt(ss->seqs[i]);
     }
 }
-
-
-
-static void
-stmt_for_expr(expr_ty e) {
-    if(e->isplain == 0) return ;
-    switch(e->kind) {
-        case BoolOp_kind:
-            {
-                /* x = a and b or c not supported*/
-                /*
-                int i, n = e->boolop.n_value;
-                if(e->addr[0] != 0) {
-                    indent_output();
-                    if(search_type_for_name(e->addr) == NULL)
-                        fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
-                    indent_output();
-                    for(i = 0; i < n; i ++ ) {
-                        expr_ty te = e->boolop.values[i];
-                        if(te->kind == BoolOp_kind) {
-                            strcpy(te->addr, e->addr);
-                        }
-                        stmt_for_expr(te);
-                        fprintf(output, "if(%s = %s) ", e->addr, te->addr);
-                        if(e->boolop.op == Or && i != n - 1)
-                            fprintf(output, "; else { ");
-                    }
-                    if(e->boolop.op == Or) {
-                        for(i = 0; i < n -1; i ++ )
-                            if(i == 0) fprintf(output, "; ");
-                            fprintf(output, "} ");
-                        fprintf(output, "\n");
-                    }else
-                        fprintf(output, ";\n");
-                }else {
-                }
-                */
-
-                int i, n = e->boolop.n_value;
-                char* op = e->boolop.op == And ? " && ": " || ";
-                for(i = 0; i < n; i ++) {
-                    expr_ty te = e->boolop.values[i];
-                    stmt_for_expr(te);
-                    strcat(e->addr, te->addr);
-                    if(n-1 != i) {
-                        strcat(e->addr, op);
-                    }
-                }
-                erase_addr_for_expr(e);
-            }
-            break;
-        case BinOp_kind:
-            {
-                expr_ty l = e->binop.left;
-                expr_ty r = e->binop.right;
-                char* oper = get_op_literal(e->binop.op);
-                stmt_for_expr(e->binop.left);
-                stmt_for_expr(e->binop.right);
-                if(e->addr[0] != 0) {
-                    indent_output();
-                    if( search_type_for_name(e->addr) == NULL) {
-                        fprintf(output, "%s %s = %s %s %s;\n", e->e_type->name, e->addr,
-                                l->addr, oper, r->addr);
-                    }else {
-                        fprintf(output, "%s = %s %s %s;\n", e->addr,l->addr, oper, r->addr);
-                    }
-                }else {
-                    sprintf(e->addr, "(%s %s %s)", l->addr, oper, r->addr);
-                }
-                erase_addr_for_expr(e);
-            }
-            break;
-        case Num_kind:
-            {
-                char addr[100];
-                if(e->num.kind == INTEGER) {
-                    sprintf(addr, "%d", e->num.ivalue);
-                }else {
-                    sprintf(addr, "%ff", e->num.fvalue);
-                }
-
-                if(e->addr[0] != 0 && strcmp(e->addr, addr) != 0) {
-                    indent_output();
-                    if(search_type_for_name(e->addr) == NULL)
-                        fprintf(output, "%s %s = ", e->e_type->name, e->addr);
-                    else
-                        fprintf(output, "%s = ", e->addr);
-                    if(e->num.kind == INTEGER) {
-                        fprintf(output, "%d;\n", e->num.ivalue);
-                    }
-                    else {
-                        fprintf(output, "%ff;\n", e->num.fvalue);
-                    }
-                }
-                else {
-                    strcpy(e->addr, addr);
-                }
-            }
-            break;
-        case Name_kind:
-            if(e->addr[0] != 0 && strcmp(e->addr, e->name.id) != 0) {
-                indent_output();
-                if(search_type_for_name(e->addr) == NULL)
-                    if(e->e_type->kind == LIST_KIND)
-                        fprintf(output, "%s &%s = %s;\n", e->e_type->name, e->addr, e->name.id);
-                    else
-                        fprintf(output, "%s %s = %s;\n", e->e_type->name, e->addr, e->name.id);
-                else
-                    fprintf(output, "%s = %s;\n", e->addr, e->name.id);
-            }
-            else {
-                strcpy(e->addr, e->name.id);
-            }
-            break;
-        case Str_kind:
-            {
-                char addr[100];
-                sprintf(addr, "\"%s\"", e->str.s);
-                if(e->addr[0] != 0 && strcmp(e->addr, addr) != 0) {
-                    indent_output();
-                    if(search_type_for_name(e->addr) == NULL)
-                        fprintf(output, "%s %s = \"%s\";\n", e->e_type->name, e->addr,  e->str.s);
-                    else
-                        fprintf(output, "%s = \"%s\";\n", e->addr,  e->str.s);
-                }else {
-                    sprintf(e->addr, "\"%s\"", e->str.s);
-                }
-            }
-            break;
-        case Compare_kind:
-            {
-                stmt_for_expr(e->compare.left);
-                stmt_for_expr(e->compare.comparators[0]);
-                char* left = e->compare.left->addr;
-                char* op = get_cmp_literal(e->compare.ops[0]);
-                char* right = e->compare.comparators[0]->addr;
-
-                if(e->addr[0] != 0 ) {
-                    indent_output();
-
-                    if(search_type_for_name(e->addr) == NULL)
-                        fprintf(output, "%s %s = %s %s %s;\n", e->e_type->name, e->addr, left, op, right);
-                    else
-                        fprintf(output, "%s = %s %s %s;\n",e->addr, left, op, right);
-
-                }else {
-                    sprintf(e->addr, "(%s %s %s)", left, op, right);
-                }
-                e->compare.left->addr[0] = 0;
-                e->compare.comparators[0]->addr[0] = 0;
-                erase_addr_for_expr(e);
-            }
-            break;
-        case Call_kind:
-            if(e->addr[0] != 0) {
-                indent_output();
-                if(search_type_for_name(e->addr) == NULL)
-                    fprintf(output, "%s %s = %s(", e->e_type->name,  e->addr, e->call.fullname);
-                else
-                    fprintf(output, "%s = %s(",  e->addr, e->call.fullname);
-                int i ;
-                for(i = 0; i < e->call.n_arg; i ++ ) {
-                    stmt_for_expr(e->call.args[i].args);
-                    fprintf(output, "%s", e->call.args[i].args->addr);
-                    if(i != e->call.n_arg -1) printf(", ");
-                }
-                fprintf(output, ");\n");
-            }
-            else {
-                sprintf(e->addr, "%s(", e->call.fullname);
-                int i ;
-                for(i = 0; i < e->call.n_arg; i ++ ) {
-                    stmt_for_expr(e->call.args[i].args);
-                    strcat(e->addr,e->call.args[i].args->addr);
-                    if(i != e->call.n_arg -1) strcat(e->addr, ", ");
-                }
-                strcat(e->addr, ") ");
-            }
-            erase_addr_for_expr(e);
-            break;
-        case Subscript_kind:
-            {
-                stmt_for_expr(e->sub.value);
-                int n = e->sub.n_slice;
-                int i;
-                for(i = 0; i < n; i ++ ) {
-                    slice_ty s = e->sub.slices[i];
-                    stmt_for_expr(s->index.value);
-                }
-                if(e->addr[0] != 0) {
-                    indent_output();
-                    if(search_type_for_name(e->addr) == NULL)
-                        fprintf(output, "%s %s = %s", e->e_type->name, e->addr, e->sub.value->addr);
-                    else
-                        fprintf(output, "%s = %s", e->addr, e->sub.value->addr);
-
-                    for(i =0; i < n; i ++ ) {
-                        fprintf(output, "[%s]", e->sub.slices[i]->index.value->addr);
-                    }
-                    fprintf(output, ";\n");
-                }else {
-                    sprintf(e->addr, "%s", e->sub.value->addr);
-                    for(i = 0; i < n; i ++ ) {
-                        sprintf(e->addr + strlen(e->addr), "[%s]", e->sub.slices[i]->index.value->addr);
-                    }
-                }
-                erase_addr_for_expr(e);
-            }
-            break;
-        case UnaryOp_kind:
-            stmt_for_expr(e->unaryop.operand);
-            if(e->addr[0]!= 0) {
-                if(search_type_for_name(e->addr) == NULL) {
-                    indent_output();
-                    fprintf(output, "%s ", e->e_type->name);
-                }
-                fprintf(output, "%s = %s%s;\n", e->addr, get_unaryop_literal(e->unaryop.op), e->unaryop.operand->addr);
-            }
-            else {
-                sprintf(e->addr, "%s%s", get_unaryop_literal(e->unaryop.op), e->unaryop.operand->addr);
-            }
-            erase_addr_for_expr(e);
-            break;
-        case Attribute_kind:
-            stmt_for_expr(e->attribute.value);
-            if(e->addr[0] != 0) {
-                if(search_type_for_name(e->addr) == NULL) {
-                    indent_output();
-                    fprintf(output, "%s ", e->e_type->name);
-                }
-                fprintf(output, "%s = %s.%s;\n", e->addr, e->attribute.value->addr, e->attribute.attr);
-            }else {
-                sprintf(e->addr, "%s.%s", e->attribute.value->addr, e->attribute.attr);
-            }
-            break;
-    }
-}
-
-
-static void
-eliminate_python_unique_for_expr(expr_ty e) {
-    if(e->isplain) return ;
-    int i;
-    switch(e->kind) {
-        case BoolOp_kind:
-            {
-                int i, n = e->boolop.n_value;
-                char* op = e->boolop.op == And ? " && ": " || ";
-                for(i = 0; i < n;i ++) {
-                    expr_ty te = e->boolop.values[i];
-                    if(te->isplain)
-                        stmt_for_expr(te);
-                    else
-                        eliminate_python_unique_for_expr(te);
-                    strcat(e->addr, te->addr);
-                    if(n-1 != i) {
-                        strcat(e->addr, op);
-                    }
-                }
-                erase_addr_for_expr(e);
-            }
-            break;
-        case BinOp_kind:
-            {
-                expr_ty l = e->binop.left;
-                expr_ty r = e->binop.right;
-                if(e->binop.left->e_type->kind == LIST_KIND) {
-                    if(e->addr[0] == 0)
-                        strcpy(e->addr, newTemp());
-                    if(e->binop.op == Add) {
-                        if(l->isplain)
-                            stmt_for_expr(l);
-                        else
-                            eliminate_python_unique_for_expr(l);
-                        if(r->isplain)
-                            stmt_for_expr(r);
-                        else
-                            eliminate_python_unique_for_expr(r);
-
-                        type_ty tp = search_type_for_name(e->addr);
-                        char* temp = NULL;
-                        if(NULL == tp) {
-                            indent_output();
-                            fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
-                        }else if(strcmp(l->addr, e->addr) != 0 && strcmp(r->addr, e->addr)!= 0){
-                            indent_output();
-                            fprintf(output, "%s.clear();\n", e->addr);
-                        }else if(strcmp(r->addr, e->addr) == 0) {
-                            indent_output();
-                            temp = newTemp();
-                            fprintf(output, "%s %s = %s;\n", e->e_type->name, temp, e->addr);
-                            strcpy(r->addr, temp);
-                            if(strcmp(l->addr, e->addr) != 0) {
-                                indent_output();
-                                fprintf(output, "%s.clear();\n", e->addr);
-                            }
-                        }
-                        char* iter = newIterator();
-                        int self = 1;
-                        if(strcmp(l->addr, e->addr) != 0) {
-                            indent_output();
-                            fprintf(output, "for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, l->addr, iter);
-                            level ++;
-                            indent_output();
-                            fprintf(output, "%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter);
-                            level --;
-                            self = 0;
-                        }
-                        if(strcmp(r->addr, e->addr) != 0 || self == 1) {
-                            indent_output();
-                            fprintf(output, "for( int %s = 0; %s < %s.size(); %s ++ )\n", iter, iter, r->addr, iter);
-                            level ++;
-                            indent_output();
-                            fprintf(output, "%s.push_back(%s[%s]);\n", e->addr, r->addr, iter);
-                            level --;
-                        }
-                        free(iter);
-                    }
-                    else if(e->binop.op == Mult && (r->e_type->kind == LIST_KIND || l->e_type->kind == LIST_KIND)) {
-                        if(e->addr[0] == 0)
-                            strcpy(e->addr, newTemp());
-                        if(r->e_type->kind == LIST_KIND) {
-                            expr_ty t = r; r = l; l = t;
-                        }
-                        if(r->isplain)
-                            stmt_for_expr(r);
-                        else
-                            eliminate_python_unique_for_expr(r);
-                        if(l->isplain)
-                            stmt_for_expr(l);
-                        else
-                            eliminate_python_unique_for_expr(l);
-
-                        indent_output();
-                        type_ty tp = search_type_for_name(e->addr);
-                        if(NULL == tp)
-                            fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
-                        else
-                            if(strcmp(e->addr, l->addr) == 0) {
-                                char *temp = newTemp();
-                                fprintf(output, "%s %s = %s;\n", e->e_type->name, temp, e->addr);
-                                strcpy(l->addr, temp);
-                            }
-                            else
-                                fprintf(output, "%s.clear();\n", e->addr);
-
-                        char* iter = newIterator();
-                        char* iter1 = newIterator();
-                        indent_output();
-                        fprintf(output, "for( int %s = 0; %s < %s; %s ++ )\n", iter, iter, r->addr, iter);
-                        level ++;
-                        indent_output();
-                        fprintf(output, "for( int %s = 0; %s < %s.size(); %s ++ )\n", iter1, iter1, l->addr, iter1);
-                        level ++;
-                        indent_output();
-                        fprintf(output, "%s.push_back(%s[%s]);\n\n", e->addr, l->addr, iter1);
-                        level -= 2;
-                        free(iter);
-                        free(iter1);
-                    }else {
-                        fprintf(stderr, "List Error\n");
-                        exit(-1);
-                    }
-                }
-                else if(e->binop.op == Pow) {
-                    if(e->addr[0] == 0)
-                        strcpy(e->addr, newTemp());
-                    if(l->isplain) {
-                        stmt_for_expr(l);
-                    }
-                    else {
-                        eliminate_python_unique_for_expr(l);
-                    }
-                    if(r->isplain) {
-                        stmt_for_expr(r);
-                    }
-                    else {
-                        eliminate_python_unique_for_expr(r);
-                    }
-                    type_ty tp = search_type_for_name(e->addr);
-                    indent_output();
-                    if(NULL == tp)  {
-                        fprintf(output, "%s %s = pow(%s, %s);\n", e->e_type->name, e->addr,
-                                l->addr, r->addr);
-                    }
-                    else
-                        fprintf(output, "%s = pow(%s, %s);\n",e->addr, l->addr, r->addr);
-                }else if(e->binop.op == Mult && (l->e_type->kind == STRING_KIND || r->e_type->kind == STRING_KIND)) {
-                    if(e->addr[0] == 0)
-                        strcpy(e->addr, newTemp());
-                    if(r->kind == Str_kind) {
-                        expr_ty t = l;
-                        l = r;
-                        r = t;
-                    }
-                    if(r->isplain)
-                        stmt_for_expr(r);
-                    else
-                        eliminate_python_unique_for_expr(r);
-                    if(l->isplain)
-                        stmt_for_expr(l);
-                    else
-                        eliminate_python_unique_for_expr(l);
-                    indent_output();
-
-                    if(search_type_for_name(e->addr) == NULL) {
-                        fprintf(output, "%s %s;\n", "string", e->addr);
-                    }else if(strcmp(e->addr, l->addr) != 0) {
-                        fprintf(output, "%s.clear();\n", e->addr);
-                    }else {
-                        char * temp = newTemp();
-                        fprintf(output, "%s %s = %s;\n", "string", temp, e->addr);
-                        strcpy(l->addr, temp);
-                    }
-                    char * iter = newIterator();
-                    indent_output();
-                    fprintf(output, "for(int %s = 0; %s < %s; %s ++ )\n", iter, iter, r->addr, iter);
-                    level ++;
-                    indent_output();
-                    fprintf(output, "%s += %s;\n", e->addr, l->addr);
-                    level --;
-                    free(iter);
-                }else {
-                    if(l->isplain)
-                        stmt_for_expr(l);
-                    else
-                        eliminate_python_unique_for_expr(l);
-                    if(r->isplain)
-                        stmt_for_expr(r);
-                    else
-                        eliminate_python_unique_for_expr(r);
-
-                    char* oper = get_op_literal(e->binop.op);
-                    if(e->addr[0] != 0) {
-                        indent_output();
-                        if( search_type_for_name(e->addr) == NULL) {
-                            fprintf(output, "%s %s = %s %s %s;\n", e->e_type->name, e->addr,
-                                    l->addr, oper, r->addr);
-                        }else {
-                            fprintf(output, "%s = %s %s %s;\n", e->addr,l->addr, oper, r->addr);
-                        }
-                    }else {
-                        sprintf(e->addr, "(%s %s %s)", l->addr, oper, r->addr);
-
-                    }
-                }
-                erase_addr_for_expr(e);
-            }
-            break;
-        case List_kind:
-            if(e->addr[0] == 0)
-                strcpy(e->addr, newTemp());
-            type_ty tp = search_type_for_name(e->addr);
-            indent_output();
-            if(tp == NULL) {
-                fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
-            }else{
-                fprintf(output, "%s.clear();\n", e->addr);
-            }
-
-            int plain = e->list.elts[0]->isplain;
-            if(plain)
-                stmt_for_expr(e->list.elts[0]);
-            else
-                eliminate_python_unique_for_expr(e->list.elts[0]);
-            indent_output();
-            fprintf(output, "%s.push_back(%s);\n", e->addr, e->list.elts[0]->addr);
-            for(i = 1; i < e->list.n_elt;  i ++ ) {
-                plain = e->list.elts[i]->isplain;
-                if(plain)
-                    stmt_for_expr(e->list.elts[i]);
-                else
-                    eliminate_python_unique_for_expr(e->list.elts[i]);
-                indent_output();
-                fprintf(output, "%s.push_back(%s);\n", e->addr, e->list.elts[i]->addr);
-            }
-            fprintf(output, "\n");
-            erase_addr_for_expr(e);
-            break;
-        case ListComp_kind:
-            {
-                indent_output();
-                if(e->listcomp.elt->isplain)
-                    stmt_for_expr(e->listcomp.elt);
-                else
-                    eliminate_python_unique_for_expr(e->listcomp.elt);
-                if(search_type_for_name(e->addr) == NULL) {
-                    fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
-                }else {
-                    fprintf(output, "%s.clear();\n", e->addr);
-                }
-                for(i = 0; i < e->listcomp.n_com; i ++ )  {
-                    if(e->listcomp.generators[i]->iter->isplain)
-                        stmt_for_expr(e->listcomp.generators[i]->iter);
-                    else
-                        eliminate_python_unique_for_expr(e->listcomp.generators[i]->iter);
-                    int j;
-                    for(j = 0; j < e->listcomp.generators[i]->n_test; j ++ ) {
-                        expr_ty t = e->listcomp.generators[i]->tests[j];
-                        if(t->isplain)
-                            stmt_for_expr(t);
-                        else
-                            eliminate_python_unique_for_expr(t);
-                    }
-                }
-                int oldlevel = level;
-                for(i = 0; i < e->listcomp.n_com; i ++ ) {
-                    indent_output();
-                    fprintf(output, "for(%s %s: %s)\n", e->listcomp.elt->e_type->name,
-                            e->listcomp.generators[i]->target->addr,
-                            e->listcomp.generators[i]->iter->addr);
-                    level ++;
-                    if(e->listcomp.generators[i]->n_test) {
-                        indent_output();
-                        fprintf(output, "if( ");
-                        int j;
-                        for(j = 0; j < e->listcomp.generators[i]->n_test; j ++ ) {
-                            fprintf(output, "%s", e->listcomp.generators[i]->tests[j]->addr);
-                            if(j != e->listcomp.generators[i]->n_test - 1)
-                                fprintf(output, " && ");
-                        }
-                        fprintf(output, " )\n");
-                        level ++;
-                    }
-                }
-                indent_output();
-                fprintf(output, "%s.push_back(%s);\n", e->addr, e->listcomp.elt->addr);
-                level = oldlevel;
-                erase_addr_for_expr(e);
-            }
-            break;
-        case Compare_kind:
-            if(e->compare.left->isplain)
-                stmt_for_expr(e->compare.left);
-            else
-                eliminate_python_unique_for_expr(e->compare.left);
-            if(e->addr[0] != 0) {
-                for(i = 0; i < e->compare.n_comparator; i ++ ) {
-                    if(e->compare.comparators[i]->isplain)
-                        stmt_for_expr(e->compare.comparators[i]);
-                    else
-                        eliminate_python_unique_for_expr(e->compare.comparators[i]);
-                }
-                indent_output();
-                if(search_type_for_name(e->addr) == NULL)
-                    fprintf(output, "%s %s = ", e->e_type->name, e->addr);
-                else
-                    fprintf(output, "%s = ", e->addr);
-                for(i = 0; i< e->compare.n_comparator; i ++ ) {
-                    char* prev = NULL;
-                    char* p = NULL;
-                    if(i == 0) {
-                        prev = e->compare.left->addr;
-                    }else {
-                        prev = e->compare.comparators[i-1]->addr;
-                    }
-                    p = e->compare.comparators[i]->addr;
-                    switch(e->compare.ops[i]) {
-                        case NotIn:
-                            fprintf(output, "find(%s.begin(), %s.end(), %s) == %s.end()", p, p, prev, p);
-                            break;
-                        case In:
-                            fprintf(output, "find(%s.begin(), %s.end(), %s) != %s.end()", p, p, prev, p);
-                            break;
-                        default:
-                            fprintf(output, "%s", prev);
-                            fprintf(output, " %s %s", get_cmp_literal(e->compare.ops[i]), p);
-                    }
-                    if(i != e->compare.n_comparator -1 ) {
-                        fprintf(output, " && ");
-                    }
-                }
-                fprintf(output, ";\n");
-            }
-            else {
-                for(i = 0; i< e->compare.n_comparator; i ++ ) {
-                    char* prev = NULL;
-                    char* p = NULL;
-                    if(i == 0) prev = e->compare.left->addr;
-                    else prev = e->compare.comparators[i - 1]->addr;
-
-                    if(e->compare.comparators[i]->isplain)
-                        stmt_for_expr(e->compare.comparators[i]);
-                    else
-                        eliminate_python_unique_for_expr(e->compare.comparators[i]);
-                    p = e->compare.comparators[i]->addr;
-                    switch(e->compare.ops[i]) {
-                        case NotIn:
-                            sprintf(e->addr, "find(%s.begin(), %s.end(), %s) == %s.end()", p, p, prev, p);
-                            break;
-                        case In:
-                            sprintf(e->addr, "find(%s.begin(), %s.end(), %s) != %s.end()", p, p, prev, p);
-                            break;
-                        default:
-                            sprintf(e->addr, "(%s %s %s)", prev,
-                                    get_cmp_literal(e->compare.ops[i]), e->compare.comparators[i]->addr);
-                            break;
-                    }
-                    if(i != e->compare.n_comparator -1 ) {
-                        strcat(e->addr, " && ");
-                    }
-                }
-                erase_addr_for_expr(e);
-            }
-            break;
-        case Call_kind:
-            if(e->addr[0] != 0) {
-                int i ;
-                for(i = 0; i < e->call.n_arg; i ++ ) {
-                    if(e->call.args[i].args->isplain)
-                        stmt_for_expr(e->call.args[i].args);
-                    else
-                        eliminate_python_unique_for_expr(e->call.args[i].args);
-                }
-                indent_output();
-                if(search_type_for_name(e->addr) == NULL)
-                    fprintf(output, "%s %s = %s(", e->e_type->name,  e->addr, e->call.fullname);
-                else
-                    fprintf(output, "s = %s(",  e->addr, e->call.fullname);
-
-                for(i = 0; i < e->call.n_arg; i ++ ) {
-                    fprintf(output, "%s", e->call.args[i].args->addr);
-                    if(i != e->call.n_arg -1) printf(", ");
-                }
-                fprintf(output, ");\n");
-            }
-            else {
-                int i ;
-                for(i = 0; i < e->call.n_arg; i ++ ) {
-                    if(e->call.args[i].args->isplain)
-                        stmt_for_expr(e->call.args[i].args);
-                    else
-                        eliminate_python_unique_for_expr(e->call.args[i].args);
-                }
-                sprintf(e->addr, "%s(", e->call.fullname);
-                for(i = 0; i < e->call.n_arg; i ++ ) {
-                    strcat(e->addr,e->call.args[i].args->addr);
-                    if(i != e->call.n_arg -1) strcat(e->addr, ", ");
-                }
-                strcat(e->addr, ") ");
-            }
-            erase_addr_for_expr(e);
-            break;
-        case Subscript_kind:
-            if(e->sub.value->isplain)
-                stmt_for_expr(e->sub.value);
-            else
-                eliminate_python_unique_for_expr(e->sub.value);
-
-            {
-                int n = e->sub.n_slice;
-                int i;
-                if(n == 1 && e->sub.slices[0]->kind == Index_kind) {
-                    if(e->sub.slices[0]->index.value->isplain)
-                        stmt_for_expr(e->sub.slices[0]->index.value);
-                    else
-                        eliminate_python_unique_for_expr(e->sub.slices[0]->index.value);
-
-                    if(e->addr[0] == 0) {
-                        sprintf(e->addr, "%s[%s]", e->sub.value->addr,
-                                e->sub.slices[0]->index.value->addr);
-                    }else {
-                        indent_output();
-                        if(search_type_for_name(e->addr) == NULL)
-                            fprintf(output, "%s %s  = %s[%s];\n", e->e_type->name,
-                                    e->addr, e->sub.value->addr, e->sub.slices[0]->index.value->addr);
-                    }
-
-                }else if(n == 1 && e->sub.slices[0]->kind == Slice_kind) {
-                    slice_ty s = e->sub.slices[0];
-                    char lower[100] = "";
-                    char upper[100] = "";
-                    char step[100] = "";
-                    if(s->slice.lower) {
-                        if(s->slice.lower->isplain)
-                            stmt_for_expr(s->slice.lower);
-                        else
-                            eliminate_python_unique_for_expr(s->slice.lower);
-                        strcpy(lower, s->slice.lower->addr);
-                    }
-                    else
-                        strcpy(lower,"0");
-
-                    if(s->slice.upper) {
-                        if(s->slice.upper->isplain)
-                            stmt_for_expr(s->slice.upper);
-                        else
-                            eliminate_python_unique_for_expr(s->slice.upper);
-                        strcpy(upper, s->slice.upper->addr);
-                    }
-                    else
-                        sprintf(upper, "%s.size()", e->sub.value->addr);
-
-                    if(strcmp(upper, "-1") == 0) {
-                        sprintf(upper, "%s.size()", e->sub.value->addr);
-                    }
-                    if(s->slice.step) {
-                        if(s->slice.step->isplain)
-                            stmt_for_expr(s->slice.step);
-                        else
-                            eliminate_python_unique_for_expr(s->slice.step);
-                        strcpy(step, s->slice.step->addr);
-                    }
-                    else
-                        strcpy(step, "1");
-
-                    if(e->addr[0] == 0) {
-                        strcpy(e->addr, newTemp());
-                    }
-                    if(search_type_for_name(e->addr) == NULL) {
-                        indent_output();
-                        fprintf(output, "%s %s;\n", e->e_type->name, e->addr);
-                    }
-
-                    indent_output();
-                    char* iter = newIterator();
-                    fprintf(output, "for(int %s = %s; %s < %s; %s += %s)\n",
-                            iter, lower, iter, upper,iter, step);
-                    level ++;
-                    indent_output();
-                    fprintf(output, "%s.push_back(%s[%s]);\n", e->addr,
-                            e->sub.value->addr, iter);
-                    level --;
-                    free(iter);
-                }
-            }
-            erase_addr_for_expr(e);
-            break;
-    }
-}
-
-static void
-eliminate_python_unique_for_stmt(stmt_ty s) {
-    switch(s->kind) {
-        case FuncDef_kind:
-            {
-                enter_new_scope_for_func();
-                push_fd(output);
-
-                char filename[128];
-                sprintf(filename, "funcs/%s", s->funcdef.fullname);
-                output = fopen(filename, "w");
-
-                char funcsig[128];
-                sprintf(funcsig, "%s(", s->funcdef.name);
-
-                int n = s->funcdef.args->n_param;
-                int i;
-                for(i = 0; i < n; i ++ ) {
-                    char* name = s->funcdef.args->params[i]->args->name.id;
-                    type_ty tp = s->funcdef.args->params[i]->args->e_type;
-                    insert_to_current_table(name, tp, SE_VARIABLE_KIND);
-                    if(tp->kind == LIST_KIND)
-                        sprintf(funcsig + strlen(funcsig), "%s & %s", tp->name, name);
-                    else
-                        sprintf(funcsig + strlen(funcsig), "%s %s", tp->name, name);
-                    if(i != n-1) {
-                        sprintf(funcsig + strlen(funcsig), ", ");
-                    }
-                }
-
-                sprintf(funcsig + strlen(funcsig), ")");
-                fprintf(output, "%s {\n", funcsig);
-
-                assign_type_to_ast(s->funcdef.body);
-
-                fprintf(output, "}\n");
-
-                exit_scope();
-
-                fclose(output);
-                output = pop_fd();
-                erase_addr_for_stmt(s);
-
-                FILE* fdef = fopen("definition.h", "a");
-                FILE* fin = fopen(filename, "r");
-
-                fprintf(fdef, "%s\n", func_ret->name);
-
-                char code[1024];
-                while(fgets(code, 1023, fin) != NULL) {
-                    fputs(code, fdef);
-                }
-                fputc('\n', fdef);
-                fclose(fdef);
-                fclose(fin);
-            }
-            break;
-    }
-}
-
-static void
-erase_addr_for_expr(expr_ty e) {
-    int i = 0;
-    switch(e->kind) {
-        case BoolOp_kind:
-            for(i = 0; i < e->boolop.n_value; i ++ ) {
-                e->boolop.values[i]->addr[0] =0;
-            }
-            break;
-        case BinOp_kind:
-            e->binop.left->addr[0] = 0;
-            e->binop.right->addr[0] = 0;
-            break;
-        case UnaryOp_kind:
-            e->unaryop.operand->addr[0] = 0;
-            break;
-        case Lambda_kind:
-            break;
-        case IfExp_kind:
-            break;
-        case Dict_kind:
-            break;
-        case Set_kind:
-            break;
-        case ListComp_kind:
-            e->listcomp.elt->addr[0] = 0;
-            for(i = 0; i < e->listcomp.n_com; i ++ ) {
-                comprehension_ty com = e->listcomp.generators[i];
-                com->target->addr[0] = 0;
-                com->iter->addr[0] = 0;
-                int j;
-                for(j = 0; j < com->n_test; j ++ ) {
-                    com->tests[j]->addr[0] = 0;
-                }
-            }
-            break;
-        case SetComp_kind:
-            break;
-        case  DictComp_kind:
-            break;
-        case GeneratorExp_kind:
-            break;
-        case Yield_kind:
-            break;
-        case Compare_kind:
-            e->compare.left->addr[0] = 0;
-            for(i = 0; i < e->compare.n_comparator; i ++ ) {
-                e->compare.comparators[i]->addr[0] = 0;
-            }
-            break;
-        case Repr_kind:
-            break;
-        case Attribute_kind:
-            e->attribute.value->addr[0] = 0;
-            break;
-        case Subscript_kind:
-            e->sub.value->addr[0] = 0;
-            for(i = 0; i < e->sub.n_slice; i ++ ) {
-                slice_ty s = e->sub.slices[i];
-                if(s->kind == Slice_kind) {
-                    if(s->slice.lower)
-                        s->slice.lower->addr[0] = 0;
-                    if(s->slice.upper)
-                        s->slice.upper->addr[0] = 0;
-                    if(s->slice.step)
-                        s->slice.step->addr[0] = 0;
-                }else {
-                    s->index.value->addr[0] = 0;
-                }
-            }
-            break;
-        case Call_kind:
-            e->call.func->addr[0] = 0;
-            for(i = 0; i < e->call.n_arg; i ++ ) {
-                e->call.args[i].args->addr[0] = 0;
-            }
-            if(e->call.varg)
-                e->call.varg->addr[0] = 0;
-            if(e->call.karg)
-                e->call.karg->addr[0] = 0;
-            break;
-        case List_kind:
-            for(i = 0; i < e->list.n_elt; i ++ ) {
-                e->list.elts[i]->addr[0] = 0;
-            }
-            break;
-        case Tuple_kind:
-            break;
-    }
-}
-
-/*
-static void
-erase_addr_for_stmt(stmt_ty s) {
-    int i;
-    switch(s->kind) {
-        case FuncDef_kind:
-            break;
-        case ClassDef_kind:
-            break;
-        case Return_kind:
-            s->ret.value->addr[0] = 0;
-            break;
-        case Delete_kind:
-            for(i = 0 ; i < s->del.n_target; i ++ ) {
-                s->del.targets[0]->addr[0] = 0;
-            }
-            break;
-        case Assign_kind:
-            s->assign.value->addr[0] = 0;
-            for(i = 0; i < s->assign.n_target; i ++ ) {
-                s->assign.targets[0]->addr[0] = 0;
-            }
-            break;
-        case AugAssign_kind:
-            s->augassignstmt.value->addr[0] = 0;
-            s->augassignstmt.target->addr[0] = 0;
-            break;
-        case Print_kind:
-            if(s->print.dest)
-                s->print.dest->addr[0] = 0;
-            for(i = 0; i < s->print.n_value; i ++ ) {
-                s->print.values[i]->addr[0] = 0;
-            }
-            break;
-        case For_kind:
-            s->forstmt.target->addr[0] = 0;
-            s->forstmt.iter->addr[0] = 0;
-            break;
-        case While_kind:
-            s->whilestmt.test->addr[0] =0;
-            break;
-        case If_kind:
-            s->ifstmt.test->addr[0] = 0;
-            break;
-        case With_kind:
-            break;
-        case Raise_kind:
-            break;
-        case Try_kind:
-            break;
-        case Assert_kind:
-            s->assert.test->addr[0];
-            break;
-        case Import_kind:
-            break;
-        case ImportFrom_kind:
-            break;
-        case Global_kind:
-            break;
-        case Expr_kind:
-            s->exprstmt.value->addr[0] = 0;
-            break;
-    }
-}
-static void
-builtin_func_handler(expr_ty e){
-    char* name = e->call.func->name.id;
-    if(strcmp(name, "abs") == 0) {
-        expr_ty te =e->call.args[0].args;
-        if(te->e_type == &t_float)  {
-            strcpy(e->call.fullname, "fabs");
-            change_func_ret_type("abs", te->e_type);
-        }else if(te->e_type == &t_integer) {
-            strcpy(e->call.fullname, "abs");
-            change_func_ret_type("abs", te->e_type);
-        }
-        e->e_type = te->e_type;
-    }
-
-    else if(strcmp(name, "range") == 0) {
-        e->e_type = create_list_type(&t_integer);
-        strcpy(e->call.fullname, "range");
-        if(e->call.n_arg == 1) {
-            FILE* fdef = fopen("definition.h", "a");
-            fprintf(fdef, "vector<int>\n"
-                    "range(int stop) {\n"
-                    "\tvector<int> t;\n"
-                    "\tfor(int i = 0; i < stop; i ++ )\n"
-                    "\t\tt.push_back(i);\n"
-                    "\treturn t;\n}");
-            fclose(fdef);
-            insert_to_global_table("range_i", e->e_type, SE_FUNCTION_KIND);
-        }else {
-            FILE* fdef = fopen("definition.h", "a");
-            fprintf(fdef, "vector<int>\n"
-                    "range(int start, int stop, int step = 1) {\n"
-                    "\tvector<int> t;\n"
-                    "\tfor(int i = 0; i < stop; i += step)\n"
-                    "\t\tt.push_back(i);\n"
-                    "\treturn t;\n}");
-            fclose(fdef);
-            insert_to_global_table("range_i_i", e->e_type, SE_FUNCTION_KIND);
-            insert_to_global_table("range_i_i_i", e->e_type, SE_FUNCTION_KIND);
-        }
-    }
-    else if(strcmp(name, "len") == 0) {
-        expr_ty arg = e->call.args[0].args;
-
-    }
-}
-*/
