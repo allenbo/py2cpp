@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 #include "Python-ast.h"
 
 char* newTemp() {
@@ -359,6 +360,12 @@ assign_type_to_expr(expr_ty e) {
 
 static void
 assign_type_to_boolop_expr(expr_ty e){
+    int i, n = e->boolop.n_value;
+    expr_ty * values = e->boolop.values;
+    for(i = 0; i < n; i ++ ) {
+        assign_type_to_expr(values[i]);
+    }
+    e->e_type = &t_boolean;
 }
 static void
 assign_type_to_binop_expr(expr_ty e) {
@@ -378,12 +385,27 @@ assign_type_to_binop_expr(expr_ty e) {
 }
 static void
 assign_type_to_unaryop_expr(expr_ty e){
+    unaryop_ty op = e->unaryop.op;
+    expr_ty operand = e->unaryop.operand;
+
+    assign_type_to_expr(operand);
+    if(op == Invert) {
+        assert(operand->e_type == &t_integer);
+        e->e_type = &t_integer;
+    }else if(op == UAdd || op == USub) {
+        e->e_type = operand->e_type;
+    }else {
+        e->e_type = &t_boolean;
+    }
 }
 static void
 assign_type_to_lambda_expr(expr_ty e){
+    arguments_ty args = e->lambda.args;
+    expr_ty body = e->lambda.body;
 }
 static void
 assign_type_to_ifexp_expr(expr_ty e){
+
 }
 static void
 assign_type_to_listcomp_expr(expr_ty e){
@@ -410,7 +432,7 @@ static void
 assign_type_to_compare_expr(expr_ty e){
     expr_ty left = e->compare.left;
     int i, n = e->compare.n_comparator;
-    expr_ty coms = e->compare.comparators;
+    expr_ty* coms = e->compare.comparators;
 
     assign_type_to_expr(left);
     for(i = 0; i < n; i ++ )
@@ -422,6 +444,7 @@ assign_type_to_repr_expr(expr_ty e){
 }
 static void
 assign_type_to_call_expr(expr_ty e){
+    /*
     expr_ty func = e->call.func;
     int i, n = e->call.n_arg;
     Parameter* args = e->call.args;
@@ -440,6 +463,7 @@ assign_type_to_call_expr(expr_ty e){
     if(func->e_type->kind == FUNCTION_KIND) {
         e->e_type = func->e_type->
     }
+    */
 }
 
 static void
