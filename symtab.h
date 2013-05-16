@@ -29,6 +29,7 @@ enum type_kind {
     FLOAT_KIND,
     STRING_KIND,
     LIST_KIND,
+    SET_KIND,
     DICT_KIND,
     TUPLE_KIND,
     FUNCTION_KIND,
@@ -75,14 +76,21 @@ struct  type {
     char name[128];
 
     /* This is for list */
+    type_ty base;
+
+    /* This is for tuple */
     int n_elt;
     type_ty * elts;
+
 
     type_ty kbase;
     type_ty vbase;
 
     /* for class and module */
     symtab_ty scope;
+
+    /* for function */
+
 };
 
 
@@ -90,6 +98,11 @@ void install_variable(expr_ty e);
 void install_variable_full(expr_ty e, enum symtab_entry_kind kind);
 void install_scope_variable(char* name, type_ty tp, enum symtab_entry_kind kind);
 type_ty lookup_variable(char* name);
+type_ty lookup_scope_variable(char* name);
+
+void change_symtab(symtab_ty st);
+void change_symtab_back();
+
 
 void assign_type_to_ast(stmt_seq* ss);
 int insert_to_current_table(char *name, type_ty t, enum symtab_entry_kind kind);

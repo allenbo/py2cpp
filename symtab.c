@@ -212,3 +212,28 @@ lookup_variable(char* name) {
     }
     return &t_unknown;
 }
+
+type_ty
+lookup_scope_variable(char* name) {
+    symtab_ty st = cur;
+    int i;
+    int n = st->st_size;
+    symtab_entry_ty se = NULL;
+    for(i = n - 1; i >= 0; i -- ) {
+        se = st->st_symbols[i];
+        if(strcmp(se->se_name, name) == 0) {
+            return se->se_type;
+        }
+    }
+    return &t_unknown;
+}
+
+void
+change_symtab(symtab_ty st) {
+    push_table(cur);
+    cur = st;
+}
+
+void change_symtab_back() {
+    cur = pop_table();
+}

@@ -96,10 +96,20 @@ void indent_output() {
 
 
 type_ty
-create_list_type(int n) {
+create_list_type(int n, type_ty t) {
     type_ty tp = (type_ty) malloc ( sizeof(struct type) );
     sprintf(tp->name, "LIST");
     tp->kind = LIST_KIND;
+    tp->base = t;
+    return tp;
+}
+
+
+type_ty
+create_tuple_type(int n) {
+    type_ty tp = (type_ty) malloc ( sizeof(struct type) );
+    sprintf(tp->name, "TUPLE");
+    tp->kind = TUPLE_KIND;
     tp->n_elt = n;
 
     tp->elts = (type_ty*) malloc (sizeof(type_ty) * n);
@@ -107,11 +117,11 @@ create_list_type(int n) {
 }
 
 int
-list_set_type(type_ty list, int i, type_ty t) {
-    if(list == NULL || list->elts == NULL || list->n_elt <= i) {
+tuple_set_type(type_ty tuple, int i, type_ty t) {
+    if(tuple == NULL || tuple->elts == NULL || tuple->n_elt <= i) {
         return 0;
     }
-    list->elts[i] = t;
+    tuple->elts[i] = t;
 }
 
 char* get_op_literal(operator_ty op) {
@@ -398,12 +408,38 @@ assign_type_to_yield_expr(expr_ty e){
 }
 static void
 assign_type_to_compare_expr(expr_ty e){
-}
-static void
-assign_type_to_call_expr(expr_ty e){
+    expr_ty left = e->compare.left;
+    int i, n = e->compare.n_comparator;
+    expr_ty coms = e->compare.comparators;
+
+    assign_type_to_expr(left);
+    for(i = 0; i < n; i ++ )
+        assign_type_to_expr(coms[i]);
+    e->e_type = &t_boolean;
 }
 static void
 assign_type_to_repr_expr(expr_ty e){
+}
+static void
+assign_type_to_call_expr(expr_ty e){
+    expr_ty func = e->call.func;
+    int i, n = e->call.n_arg;
+    Parameter* args = e->call.args;
+    expr_ty varg = e->call.varg;
+    expr_ty karg = e->call.karg;
+
+    assign_type_to_expr(func);
+    for(i = 0 ; i < n; i ++ ) {
+        expr_ty ar = args[i].args;
+        expr_ty value = args[i].value;
+
+        if(value){
+            assign_type_to_expr(value);
+        }
+    }
+    if(func->e_type->kind == FUNCTION_KIND) {
+        e->e_type = func->e_type->
+    }
 }
 
 static void
@@ -420,9 +456,92 @@ assign_type_to_str_expr(expr_ty e){
 }
 static void
 assign_type_to_attribute_expr(expr_ty e){
+    expr_ty value = e->attribute.value;
+    char* attr = e->attribute.attr;
+
+    assign_type_to_expr(value);
+    if(value->e_type == &t_unknown) {
+        fprintf(stderr, "The type of %s is noknown\n", attr);
+        e->e_type = &t_unknown;
+    }else {
+        change_symtab(value->e_type->scope);
+        e->e_type = lookup_scope_variable(attr);
+        change_symtab_back();
+    }
 }
 static void
 assign_type_to_subscript_expr(expr_ty e){
+    expr_ty value = e->sub.value;
+    int i, n = e->sub.n_slice;
+    slice_ty * slices = e->sub.slices;
+
+    assign_type_to_expr(value);
+    /* for now , I just deal with the case n_slice = 1 */
+    for(i = 0; i < n; i ++ ) {
+        slice_ty s = slices[i];
+        if(s->kind == Index_kind) {
+            expr_ty v = s->index.value;
+            assign_type_to_expr(v);
+            if(value->e_type->kind == LIST_KIND
+                    || value->e_type->kind == SET_KIND) {
+                e->e_type = value->e_type->base;
+            }else if(value->e_type->kind == DICT_KIND) {
+                e->e_type = value->e_type->vbase;
+            }else if(value->e_type->kind == TUPLE_KIND) {
+                if(v->kind == Num_kind) {
+                    int iv = v->num.ivalue;
+                    e->e_type = value->e_type->elts[iv];
+                }else {
+                    e->e_type = &t_unknown;
+                }
+            }
+        }
+        else {
+            expr_ty lower = s->slice.lower;
+            expr_ty upper = s->slice.upper;
+            expr_ty step = s->slice.step;
+
+            if(NULL != lower) assign_type_to_expr(lower);
+            if(NULL != upper) assign_type_to_expr(upper);
+            if(NULL != step) assign_type_to_expr(step);
+
+            if(value->e_type->kind == LIST_KIND ||
+                    value->e_type->kind == SET_KIND) {
+                e->e_type = value->e_type->base;
+            }else if(value->e_type->kind == DICT_KIND) {
+                e->e_type = value->e_type->vbase;
+            }else if(value->e_type->kind = TUPLE_KIND) {
+                int l = 0, u = 0, t = 1;
+                if(NULL != lower)
+                    if(lower->kind == Num_kind)
+                        l = lower->num.ivalue;
+                    else
+                        l = -1;
+                if(NULL != upper)
+                    if(upper->kind == Num_kind)
+                        u = upper->num.ivalue;
+                    else
+                        u = -2;
+                if(u == -1) u == value->e_type->n_elt;
+
+                if(NULL != step)
+                    if(step->kind == Num_kind)
+                        t = step->num.ivalue;
+                    else
+                        t = -1;
+                if(l < 0 || u < 0 || t < 0) {
+                    e->e_type = create_tuple_type(1);
+                    e->e_type->elts[0] = &t_unknown;
+                }else {
+                    int j;
+                    e->e_type = create_tuple_type((u-l)/t);
+                    for(j = l; j < u; j += t) {
+                        tuple_set_type(e->e_type, j, value->e_type->elts[j]);
+                    }
+                }
+            }
+        }
+    }
 }
 static void
 assign_type_to_name_expr(expr_ty e){
@@ -435,17 +554,27 @@ static void
 assign_type_to_list_expr(expr_ty e){
     type_ty tp = NULL;
     int i, n = e->list.n_elt;
-    e->e_type = create_list_type(n);
 
     expr_ty t = NULL;
     for(i = 0; i < n; i ++ ) {
         t = e->list.elts[i];
         assign_type_to_expr(t);
-        list_set_type(e->e_type, i, t->e_type);
     }
+    e->e_type = create_list_type(n, t->e_type);
 }
 static void
 assign_type_to_tuple_expr(expr_ty e){
+    type_ty tp = NULL;
+    int i, n = e->tuple.n_elt;
+    e->e_type = create_tuple_type(n);
+    expr_ty t = NULL;
+    for(i = 0; i < n; i ++ ) {
+        t = e->tuple.elts[i];
+        assign_type_to_expr(t);
+        tuple_set_type(e->e_type, i, t->e_type);
+        if(t->dable == 1)
+            e->dable = 1;
+    }
 }
 
 

@@ -8,13 +8,12 @@ using namespace std;
 class pyobj;
 class _py_str;
 class _py_int;
-class _py_list;
+template<class T> class _py_list;
 class _py_lambda;
 
 #define POBJ pyobj*
 #define PINT _py_int*
 #define PSTR _py_str*
-#define PLIST _py_list*
 #define PLAMBDA _py_lambda*
 
 #define Int new _py_int
@@ -24,13 +23,22 @@ class _py_lambda;
 
 #define DInt(x) dynamic_cast<_py_int*>(x)
 #define DStr(x) dynamic_cast<_py_str*>(x)
-#define DList(x) dynamic_cast<_py_list*>(x)
 #define DLambda(x) dynamic_cast<_py_lambda*>(x)
 
 #define LAMBDA(x) Lambda(#x, (void*)x)
 
+#define OBJ 0
+#define OINT 1
+#define OSTR 2
+#define OLIST 3
+#define OTUPLE 4
+#define OLAMBDA 5
+
+
 class pyobj {
     public:
+        pyobj(int k): kind(k) {}
+        int kind;
         virtual _py_str* __repr__() {}
         virtual pyobj* add(pyobj* a) {}
         virtual pyobj* sub(pyobj* a) {}
@@ -41,14 +49,14 @@ class pyiter {
     public:
         virtual bool has_next() = 0;
         virtual pyobj* next() = 0;
-        virtual pyobj*& get(_py_int * ind) = 0;
+        virtual pyobj* get(_py_int * ind) = 0;
 };
 
 class _py_str: public pyobj {
     public:
-        _py_str(char* cs): s(cs) {
+        _py_str(char* cs): s(cs), pyobj(OSTR) {
         }
-        _py_str(string s) {
+        _py_str(string s): pyobj(OSTR) {
             this->s = s;
         }
         _py_str* __repr__() {
@@ -72,9 +80,7 @@ class _py_str: public pyobj {
 
 class _py_int: public pyobj {
     public:
-        _py_int(long long a) {
-            this->i = a;
-        }
+        _py_int(long long a): i(a), pyobj(OINT) { }
         _py_int* add(pyobj* a) {
             _py_int * aa = dynamic_cast< _py_int * >(a);
             long long ri = this->i + aa->i;
@@ -102,36 +108,36 @@ class _py_int: public pyobj {
         long long i;
 };
 
-
+template<class T>
 class _py_list: public pyobj, public  pyiter{
     public:
-        _py_list(int count, ...) : elements(0), pointer (0) {
+        _py_list(int count, ...) : elements(0), pointer (0) , pyobj(OLIST){
             if(count == 0) return ;
             va_list ap;
             va_start(ap, count);
             for(int i = 0; i < count; i ++ )
-                elements.push_back(va_arg(ap, pyobj*));
+                elements.push_back(va_arg(ap, T));
             va_end(ap);
         };
-        _py_list(_py_list* o): elements(0) {
+        _py_list(_py_list<T>* o): elements(0), pyobj(OLIST) {
             for(int i = 0; i < o->elements.size(); i ++ ) {
                 this->elements.push_back(o->elements[i]);
             }
         }
 
-        _py_list* add(pyobj* a) {
-            _py_list* aa = dynamic_cast<_py_list*>(a);
-            _py_list* ret = new _py_list(this);
+        _py_list<T>* add(pyobj* a) {
+            _py_list<T>* aa = dynamic_cast<_py_list<T>*>(a);
+            _py_list<T>* ret = new _py_list<T>(this);
             for(int i  = 0; i < aa->elements.size(); i ++ ) {
                 ret->elements.push_back(aa->elements[i]);
             }
             return ret;
         }
 
-        _py_list* mul(pyobj* a) {
+        _py_list<T>* mul(pyobj* a) {
             _py_int * aa = dynamic_cast<_py_int*> (a);
             long long cnt = aa->getInt();
-            _py_list * ret = new _py_list(0);
+            _py_list<T> * ret = new _py_list<T>(0);
 
             for(long long i = 0; i < cnt; i ++ ) {
                 for(int j = 0; j < this->elements.size(); j ++ )
@@ -140,13 +146,13 @@ class _py_list: public pyobj, public  pyiter{
             return ret;
         }
 
-        void* append(pyobj* o) {
+        void* append(T o) {
             elements.push_back(o);
             return NULL;
         }
         void* extend(pyiter* o) {
             for(; o->has_next();){
-                this->elements.push_back(o->next());
+                this->elements.push_back(dynamic_cast<T>(o->next()));
             }
             return NULL;
         }
@@ -155,11 +161,11 @@ class _py_list: public pyobj, public  pyiter{
             else return 1;
         }
 
-        pyobj* next() {
+        T next() {
             return elements[pointer++];
         }
 
-        pyobj*& get(_py_int* ind) {
+        T get(_py_int* ind) {
             long long i = ind->getInt();
             return elements[i];
         }
@@ -175,13 +181,13 @@ class _py_list: public pyobj, public  pyiter{
         }
     private:
         int pointer;
-        std::vector<pyobj*> elements;
+        std::vector<T> elements;
 };
 
 
 class _py_tuple: public pyobj, public pyiter{
     public:
-        _py_tuple(int count, ...) : elements(0) {
+        _py_tuple(int count, ...) : elements(0), pyobj(OTUPLE){
             va_list ap;
             va_start(ap, count);
             for(int i = 0; i < count; i ++ )
@@ -189,10 +195,6 @@ class _py_tuple: public pyobj, public pyiter{
             va_end(ap);
         };
 
-        void* append(pyobj* o) {
-            elements.push_back(o);
-            return NULL;
-        }
         _py_str* __repr__() {
             pyobj* ret = new _py_str("(");
             for(int i = 0; i < elements.size(); i ++ ) {
@@ -209,7 +211,7 @@ class _py_tuple: public pyobj, public pyiter{
 
 class _py_lambda : public pyobj {
     public:
-        _py_lambda(string s, void* f):name(s), func(f) { }
+        _py_lambda(string s, void* f):name(s), func(f), pyobj(OLAMBDA) { }
 
         template<typename... types>
         POBJ operator()(types... args) {
@@ -255,19 +257,20 @@ pyobj* add( pyobj* x, pyobj* y) {
     return x->add(y);
 }
 
-PLIST range(PINT start, PINT stop = NULL, PINT step = NULL) {
+_py_list<PINT>* range(PINT start, PINT stop = NULL, PINT step = NULL) {
     long long sa = 0;
     long long sp = 0;
     long long st = 1;
     sp = stop->getInt();
     if(NULL != start) sa = start->getInt();
     if(NULL != step) st = step->getInt();
-    PLIST l = List(0);
+    _py_list<PINT>* l = List<PINT>(0);
     for(long long i  = sa; i < sp ; i += st) {
         l->append(Int(i));
     }
     return l;
 }
+
 
 int main() {
     /*
@@ -345,9 +348,13 @@ int main() {
     y->append(x);
     print(NULL, 1, 1, y);
     */
+    /*
     PLIST x = List(2, LAMBDA(add), LAMBDA(range));
     print(NULL, 1, 1, x);
-    PLIST y = DList((*DLambda(x->get(Int(1))))(NULL, Int(6), NULL));
+    PLIST y = DList(DEF(x->get(Int(1)), (NULL, Int(6), NULL)));
     print(NULL, 1, 1, y);
+    */
+    _py_list<PINT>* x = List<PINT>(2, Int(1), Int(2));
+    print(NULL, 1, 1, x);
     return 0;
 }
