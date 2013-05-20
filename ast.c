@@ -154,12 +154,12 @@ label_list_for:
     n = CHILD(n, 4);
     n = CHILD(n, 0);
 
-    if(TYPE(n) == list_for) goto label_list_for;
+    if(TYPE(n) == list_for || TYPE(n) == comp_for) goto label_list_for;
 label_list_if:
     if(NCH(n) == 2) return n_fors;
     n = CHILD(n, 2);
     n = CHILD(n, 0);
-    if(TYPE(n) == list_for) goto label_list_for;
+    if(TYPE(n) == list_for || TYPE(n) == comp_for) goto label_list_for;
     else goto label_list_if;
 }
 
@@ -168,7 +168,7 @@ count_ifs(const node* n) {
     int n_ifs = 0;
 label_list_iter:
     n = CHILD(n,0);
-    if(TYPE(n) == list_for) return n_ifs;
+    if(TYPE(n) == list_for || TYPE(n) == comp_for) return n_ifs;
     n_ifs ++;
     if( NCH(n) == 2) return n_ifs;
     n = CHILD(n, 2);

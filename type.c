@@ -18,22 +18,6 @@ char* newIterator() {
     return tmp;
 }
 
-int level = 1;
-
-static type_ty func_ret = NULL;
-static FILE* fdef[1000];
-int fd = 0;
-
-void push_fd(FILE* f) {
-    fdef[fd++] = f;
-}
-FILE* pop_fd() {
-    return fdef[--fd];
-}
-
-FILE* output = NULL;
-
-
 struct type t_unknown  = {UNKNOWN_KIND,  "VOID"};
 struct type t_char = {CHAR_KIND, "CHAR"};
 struct type t_boolean = {BOOLEAN_KIND, "BOOL"};
@@ -85,15 +69,7 @@ static void assign_type_to_name_expr(expr_ty e);
 static void assign_type_to_list_expr(expr_ty e);
 static void assign_type_to_tuple_expr(expr_ty e);
 
-
-
-void indent_output() {
-    int i ;
-
-    for(i= 0 ; i < level; i ++ ) {
-        fprintf(output, "\t");
-    }
-}
+static void assign_type_to_comprehension(comprehension_ty com);
 
 
 type_ty
@@ -395,6 +371,7 @@ assign_type_to_boolop_expr(expr_ty e){
     }
     e->e_type = &t_boolean;
 }
+
 static void
 assign_type_to_binop_expr(expr_ty e) {
     expr_ty left = e->binop.left;
@@ -411,6 +388,7 @@ assign_type_to_binop_expr(expr_ty e) {
         else e->e_type = widen_type(left->e_type, right->e_type);
     }
 }
+
 static void
 assign_type_to_unaryop_expr(expr_ty e){
     unaryop_ty op = e->unaryop.op;
@@ -426,11 +404,13 @@ assign_type_to_unaryop_expr(expr_ty e){
         e->e_type = &t_boolean;
     }
 }
+
 static void
 assign_type_to_lambda_expr(expr_ty e){
     arguments_ty args = e->lambda.args;
     expr_ty body = e->lambda.body;
 }
+
 static void
 assign_type_to_ifexp_expr(expr_ty e){
     expr_ty test = e->ifexp.test;
@@ -443,13 +423,30 @@ assign_type_to_ifexp_expr(expr_ty e){
 
     e->e_type = narrow_type(body->e_type, orelse->e_type);
 }
+
 static void
 assign_type_to_listcomp_expr(expr_ty e){
     expr_ty elt = e->listcomp.elt;
     int i, n = e->listcomp.n_com;
     comprehension_ty* gens = e->listcomp.generators;
 
+    char scope_name[128] = "";
+    sprintf(scope_name, "comp_%p", e);
+    type_ty tp = (type_ty) malloc ( sizeof ( struct type) );
+    tp->kind = SCOPE_KIND;
+    install_scope_variable(scope_name, tp, SE_SCOPE_KIND);
+
+    for(i = 0; i < n; i ++ ) {
+        assign_type_to_comprehension(gens[i]);
+    }
+
+    /* Now identifier in elt will appear in symbol table */
+    assign_type_to_expr(elt);
+    change_symtab_back(); /* change to current table */
+
+    e->e_type = create_list_type(0, elt->e_type); /* Cannot figure out the number of elements */
 }
+
 static void
 assign_type_to_dict_expr(expr_ty e){
     int i, n = e->dict.n_key;
@@ -477,10 +474,51 @@ assign_type_to_set_expr(expr_ty e){
 
 static void
 assign_type_to_dictcomp_expr(expr_ty e){
+    expr_ty key = e->dictcomp.key;
+    expr_ty value = e->dictcomp.value;
+
+    int i, n = e->dictcomp.n_com;
+    comprehension_ty * gens = e->dictcomp.generators;
+
+    char scope_name[128] = "";
+    sprintf(scope_name, "comp_%p", e);
+    type_ty tp = (type_ty) malloc ( sizeof ( struct type) );
+    tp->kind = SCOPE_KIND;
+    install_scope_variable(scope_name, tp, SE_SCOPE_KIND);
+
+    for(i = 0; i < n; i ++ ) {
+        assign_type_to_comprehension(gens[i]);
+    }
+
+    assign_type_to_expr(key);
+    assign_type_to_expr(value);
+
+    change_symtab_back();
+
+    e->e_type = create_dict_type(0, key->e_type, value->e_type);
 }
 
 static void
 assign_type_to_setcomp_expr(expr_ty e){
+    expr_ty elt = e->setcomp.elt;
+    int i, n = e->setcomp.n_com;
+    comprehension_ty* gens = e->setcomp.generators;
+
+    char scope_name[128] = "";
+    sprintf(scope_name, "comp_%p", e);
+    type_ty tp = (type_ty) malloc ( sizeof ( struct type) );
+    tp->kind = SCOPE_KIND;
+    install_scope_variable(scope_name, tp, SE_SCOPE_KIND);
+
+    for(i = 0; i < n; i ++ ) {
+        assign_type_to_comprehension(gens[i]);
+    }
+
+    /* Now identifier in elt will appear in symbol table */
+    assign_type_to_expr(elt);
+    change_symtab_back(); /* change to current table */
+
+    e->e_type = create_set_type(0, elt->e_type); /* Cannot figure out the number of elements */
 }
 
 static void
@@ -668,53 +706,37 @@ assign_type_to_tuple_expr(expr_ty e){
 
 
 static void
-push_type_to_expr(expr_ty e) {
-    if(e->kind == Tuple_kind) {
-        if(e->e_type->kind == TUPLE_KIND) {
-
-        }
-    }
-    else if(e->kind == Name_kind) {
-        //insert_to_current_table(e->name.id, e->e_type, SE_TEMP);
-        strcpy(e->addr, e->name.id);
-    }
-}
-
-static void
 assign_type_to_comprehension(comprehension_ty com) {
     expr_ty iter = com->iter;
     expr_ty target = com->target;
+
+    assign_type_to_expr(iter);
+
+    if(iter->e_type->kind == DICT_KIND)
+        target->e_type = iter->e_type->kbase;
+    else if( iter->e_type->kind == LIST_KIND)
+        target->e_type = iter->e_type->base;
+    else if( iter->e_type->kind == TUPLE_KIND)
+        /* for tuple kind, I use the first element's type
+         * Because we don't generate multitype list, the elements in
+         * tuple should have the same type
+         */
+        target->e_type = iter->e_type->elts[0];
+    else {
+        /* Here is for generator and iterable object */
+    }
+
+    install_variable(target);
 
     int i;
     for(i = 0; i < com->n_test; i ++ ) {
         assign_type_to_expr(com->tests[i]);
     }
-    assign_type_to_expr(iter);
-/*
-    if(iter->e_type->kind == LIST_KIND) {
-        target->e_type = iter->e_type->base;
-    }else if(iter->e_type->kind ==DICT_KIND) {
-        target->e_type = iter->e_type->kbase;
-    }
-*/
-    push_type_to_expr(target);
 }
-
-
-
-static void
-push_type_to_arguments(stmt_ty st, expr_ty e) {
-    int i;
-    for(i = 0; i < e->call.n_arg; i ++ ) {
-        st->funcdef.args->params[i]->args->e_type = e->call.args[i].args->e_type;
-    }
-}
-
 
 
 void
 assign_type_to_ast(stmt_seq* ss) {
-    if(NULL == output) output = stdout;
     int i = 0;
     for(; i < ss->size; i ++ ) {
         assign_type_to_stmt(ss->seqs[i]);

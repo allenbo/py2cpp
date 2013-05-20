@@ -11,6 +11,7 @@ enum symtab_entry_kind {
     SE_DEFAULT_KIND,
     SE_CLASS_KIND,
     SE_MODULE_KIND,
+    SE_SCOPE_KIND,
     SE_REUSE_KIND
 };
 
@@ -18,6 +19,7 @@ enum symtab_kind {
     SK_GLOBAL_KIND,
     SK_MODULE_KIND,
     SK_FUNCTION_KIND,
+    SK_SCOPE_KIND,
     SK_CLASS_KIND
 };
 
@@ -32,9 +34,11 @@ enum type_kind {
     SET_KIND,
     DICT_KIND,
     TUPLE_KIND,
+    GENERATOR_KIND,
     FUNCTION_KIND,
     CLASS_KIND,
-    MODULE_KIND
+    MODULE_KIND,
+    SCOPE_KIND
 };
 
 
@@ -105,11 +109,5 @@ void change_symtab_back();
 
 
 void assign_type_to_ast(stmt_seq* ss);
-int insert_to_current_table(char *name, type_ty t, enum symtab_entry_kind kind);
 
-void enter_new_scope_for_func();
-void enter_new_scope_for_class();
-void exit_scope();
-
-//type_ty create_list_type(type_ty t);
 #endif

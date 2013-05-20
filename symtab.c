@@ -85,58 +85,6 @@ init_global() {
 }
 
 
-int
-insert_to_current_table(char* name, type_ty tp, enum symtab_entry_kind kind) {
-    if(global == NULL) {
-        init_global();
-    }
-
-    if(cur->st_size == cur->st_capacity) {
-        expand_cur_for_entry();
-    }
-    cur->st_symbols[cur->st_size ++ ] =
-        create_symtab_entry(name, tp, kind, cur);
-    return 1;
-}
-
-
-
-void
-enter_new_scope_for_func() {
-    if(0 == func_table->child_capacity ) {
-        func_table->child_capacity = 8;
-        func_table->st_children =
-            (symtab_ty*) malloc(
-                    func_table->child_capacity*sizeof(symtab_ty)
-                    );
-    }
-    if(func_table->child_capacity == func_table->n_child) {
-        func_table->child_capacity += 8;
-        func_table->st_children =
-            (symtab_ty*) realloc (
-                    func_table->st_children,
-                    sizeof(symtab_ty) * func_table->child_capacity
-                    );
-    }
-    func_table->st_children[func_table->n_child ++ ] =
-        create_symtab(func_table, SK_FUNCTION_KIND);
-    push_table(cur);
-    cur = func_table->st_children[func_table->n_child - 1];
-}
-
-
-void
-enter_new_scope_for_class() {
-    push_table(cur);
-    cur = cur->st_symbols[cur->st_size -1]->se_scope;
-}
-
-void
-exit_scope() {
-    cur = pop_table();
-}
-
-
 void
 install_variable(expr_ty e){
     install_variable_full(e, SE_VARIABLE_KIND);
@@ -168,18 +116,41 @@ install_scope_variable(char* name, type_ty tp,
     if(NULL == global)
         init_global();
 
-    if(kind == SE_MODULE_KIND ) {
-        push_table(cur);
-        cur = global;
+    symtab_ty sp = NULL;
+    switch(kind) {
+        case SE_MODULE_KIND:
+            push_table(cur);
+            cur = global;
+            sp = create_symtab(cur, SK_MODULE_KIND);
+            break;
+        case SE_CLASS_KIND:
+            sp = create_symtab(cur, SK_CLASS_KIND);
+            break;
+        case SE_SCOPE_KIND:
+            sp = create_symtab(cur, SK_SCOPE_KIND);
+            break;
+        case SE_FUNCTION_KIND:
+            sp = create_symtab(cur, SK_FUNCTION_KIND);
+            break;
+        default:
+            fprintf(stderr, "This is not a scope kind\n");
     }
 
-    symtab_ty sp = create_symtab(cur, SK_MODULE_KIND);
 
-    cur->child_capacity = 8;
-    int n  = cur->child_capacity;
-    cur->st_children = (symtab_ty*) malloc (
-            sizeof(symtab_ty) * n);
-    cur->st_children[global->n_child++] = sp;
+    if(cur->child_capacity == 0) {
+        cur->child_capacity = 8;
+        int n  = cur->child_capacity;
+        cur->st_children = (symtab_ty*) malloc (
+                sizeof(symtab_ty) * n);
+    }else {
+        if(cur->child_capacity == cur->n_child) {
+            cur->child_capacity += 8;
+            int n = cur->child_capacity;
+            cur->st_children = (symtab_ty*) realloc( cur->st_children,
+                    sizeof(symtab_ty)* n);
+        }
+    }
+    cur->st_children[cur->n_child++] = sp;
 
     tp->scope = sp;
     if(cur->st_size == cur->st_capacity)
