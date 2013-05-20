@@ -1,7 +1,7 @@
 OBJ=main.o acceler.o bitset.o  graminit.o  listnode.o  node.o parser.o parsetok.o tokenizer.o grammar1.o ast.o Python-ast.o type.o symtab.o
 HEADER=errcode.h graminit.h node.h opcode.h parser.h parsetok.h token.h tokenizer.h grammar.h Python-ast.h symtab.h
 
-CFLAGS= -Wall
+CFLAGS=
 main:$(OBJ)
 	gcc -o main $(OBJ) -g $(CFLAGS)
 .c.o:

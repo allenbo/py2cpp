@@ -107,6 +107,16 @@ create_list_type(int n, type_ty t) {
 
 
 type_ty
+create_set_type(int n, type_ty t) {
+    type_ty tp = (type_ty) malloc (sizeof(struct type));
+    strcpy(tp->name, "SET");
+    tp->kind = SET_KIND;
+    tp->base = t;
+    return tp;
+}
+
+
+type_ty
 create_tuple_type(int n) {
     type_ty tp = (type_ty) malloc ( sizeof(struct type) );
     sprintf(tp->name, "TUPLE");
@@ -124,6 +134,17 @@ tuple_set_type(type_ty tuple, int i, type_ty t) {
     }
     tuple->elts[i] = t;
 }
+
+type_ty
+create_dict_type(int n, type_ty kbase, type_ty vbase) {
+    type_ty tp = (type_ty) malloc (sizeof(struct type));
+    sprintf(tp->name, "DICT");
+    tp->kind = DICT_KIND;
+    tp->kbase = kbase;
+    tp->vbase = vbase;
+    return tp;
+}
+
 
 char* get_op_literal(operator_ty op) {
     switch(op) {
@@ -170,13 +191,20 @@ type_compare(type_ty t1, type_ty t2) {
 }
 
 static type_ty
-max_type(type_ty t1, type_ty t2) {
+widen_type(type_ty t1, type_ty t2) {
     if(t1 == &t_unknown ) return t2;
     if(t2 == &t_unknown) return t1;
     if(t1 != &t_integer && t1 != &t_float) return t1;
     if(t2 != &t_integer && t2 != &t_float) return t2;
     if(t1 == t2) return t1;
     if(t1 == &t_float || t2 == &t_float) return &t_float;
+}
+
+static type_ty
+narrow_type(type_ty t1, type_ty t2) {
+    if(t1 == t2) return t1;
+    if(t1 == &t_unknown) return t1;
+    if(t2 == &t_unknown) return t2;
 }
 
 static void
@@ -380,7 +408,7 @@ assign_type_to_binop_expr(expr_ty e) {
         e->e_type = left->e_type;
     else {
         if(op == Div) e->e_type = &t_float;
-        else e->e_type = max_type(left->e_type, right->e_type);
+        else e->e_type = widen_type(left->e_type, right->e_type);
     }
 }
 static void
@@ -405,29 +433,66 @@ assign_type_to_lambda_expr(expr_ty e){
 }
 static void
 assign_type_to_ifexp_expr(expr_ty e){
+    expr_ty test = e->ifexp.test;
+    expr_ty body = e->ifexp.body;
+    expr_ty orelse = e->ifexp.orelse;
 
+    assign_type_to_expr(test);
+    assign_type_to_expr(body);
+    assign_type_to_expr(orelse);
+
+    e->e_type = narrow_type(body->e_type, orelse->e_type);
 }
 static void
 assign_type_to_listcomp_expr(expr_ty e){
+    expr_ty elt = e->listcomp.elt;
+    int i, n = e->listcomp.n_com;
+    comprehension_ty* gens = e->listcomp.generators;
+
 }
 static void
 assign_type_to_dict_expr(expr_ty e){
+    int i, n = e->dict.n_key;
+    expr_ty* keys = e->dict.keys;
+    expr_ty* values = e->dict.values;
+
+    for(i = 0; i < n ; i ++) {
+        assign_type_to_expr(keys[i]);
+        assign_type_to_expr(values[i]);
+    }
+
+    e->e_type = create_dict_type(n, keys[0]->e_type, values[0]->e_type);
 }
+
 static void
 assign_type_to_set_expr(expr_ty e){
+    int i, n = e->set.n_elt;
+    expr_ty * elts = e->set.elts;
+
+    for(i = 0; i < n; i ++) {
+        assign_type_to_expr(elts[i]);
+    }
+    e->e_type = create_set_type(n, elts[0]->e_type);
 }
+
 static void
 assign_type_to_dictcomp_expr(expr_ty e){
 }
+
 static void
 assign_type_to_setcomp_expr(expr_ty e){
 }
+
 static void
 assign_type_to_generator_expr(expr_ty e){
 }
+
 static void
 assign_type_to_yield_expr(expr_ty e){
+    assign_type_to_expr(e->yield.value);
+    e->e_type = e->yield.value->e_type;
 }
+
 static void
 assign_type_to_compare_expr(expr_ty e){
     expr_ty left = e->compare.left;

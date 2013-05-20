@@ -15,6 +15,7 @@ class _py_lambda;
 #define PINT _py_int*
 #define PSTR _py_str*
 #define PLAMBDA _py_lambda*
+#define PLIST(x) _py_list<x>*
 
 #define Int new _py_int
 #define Str new _py_str
@@ -354,7 +355,7 @@ int main() {
     PLIST y = DList(DEF(x->get(Int(1)), (NULL, Int(6), NULL)));
     print(NULL, 1, 1, y);
     */
-    _py_list<PINT>* x = List<PINT>(2, Int(1), Int(2));
+    PLIST(PINT) x = List<PINT>(2, Int(1), Int(2));
     print(NULL, 1, 1, x);
     return 0;
 }
