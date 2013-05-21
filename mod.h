@@ -293,7 +293,7 @@ typedef struct {
 typedef struct {
     expr_ty elt;
     int n_com;
-    expr_ty* generators;
+    comprehension_ty* generators;
 }GeneratorExp;
 
 

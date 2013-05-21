@@ -93,6 +93,16 @@ create_set_type(int n, type_ty t) {
 
 
 type_ty
+create_generator_type(type_ty t) {
+    type_ty tp = (type_ty) malloc ( sizeof(struct type) );
+    sprintf(tp->name, "GENERATOR");
+    tp->kind = GENERATOR_KIND;
+    tp->base = t;
+    return tp;
+}
+
+
+type_ty
 create_tuple_type(int n) {
     type_ty tp = (type_ty) malloc ( sizeof(struct type) );
     sprintf(tp->name, "TUPLE");
@@ -278,36 +288,110 @@ assign_type_to_assign_stmt(stmt_ty s) {
 
 static void
 assign_type_to_augassign_stmt(stmt_ty s){
+    expr_ty target = s->augassignstmt.target;
+    expr_ty value = s->augassignstmt.value;
+
+    assign_type_to_expr(target);
+    assign_type_to_expr(value);
 }
+
 static void
 assign_type_to_print_stmt(stmt_ty s){
+    expr_ty dest = s->print.dest;
+    expr_ty * values = s->print.values;
+    int i, n = s->print.n_value;
+
+    if(dest)
+        assign_type_to_expr(dest);
+
+    for(i = 0; i < n; i ++ ) {
+        assign_type_to_expr(values[i]);
+    }
 }
+
+
 static void
 assign_type_to_for_stmt(stmt_ty s){
+    expr_ty target = s->forstmt.target;
+    expr_ty iter = s->forstmt.iter;
+
+    assign_type_to_expr(iter);
+    assign_type_to_expr(target);
+
+    type_ty t = NULL;
+    if(iter->e_type->kind == DICT_KIND)
+        t = iter->e_type->kbase;
+    else if( iter->e_type->kind == LIST_KIND || iter->e_type->kind == SET_KIND
+            || iter->e_type->kind == GENERATOR_KIND)
+        t = iter->e_type->base;
+    else if( iter->e_type->kind == TUPLE_KIND)
+        /* for tuple kind, I use the first element's type
+         * Because we don't generate multitype list, the elements in
+         * tuple should have the same type
+         */
+        t = iter->e_type->elts[0];
+    else {
+        /* Here is for generator and iterable object */
+    }
+
+    if(target->e_type == &t_unknown) {
+        target->e_type = t;
+        install_variable(target);
+    }else if( type_compare(target->e_type, t) != 0) {
+        if(target->dable == 1) {
+            target->e_type = t;
+            install_variable_full(target, SE_REUSE_KIND);
+        }
+    }
+
+    assign_type_to_ast(s->forstmt.body);
+    if(s->forstmt.orelse)
+        assign_type_to_ast(s->forstmt.orelse);
 }
+
+
 static void
 assign_type_to_while_stmt(stmt_ty s){
+    expr_ty test = s->whilestmt.test;
+    assign_type_to_expr(test);
+
+    assign_type_to_ast(s->whilestmt.body);
+    if(s->whilestmt.orelse)
+        assign_type_to_ast(s->whilestmt.orelse);
 }
+
 static void
 assign_type_to_if_stmt(stmt_ty s){
+    expr_ty test = s->ifstmt.test;
+    assign_type_to_expr(test);
+
+    assign_type_to_ast(s->ifstmt.body);
+    if(s->ifstmt.orelse)
+        assign_type_to_ast(s->ifstmt.orelse);
 }
 static void
 assign_type_to_with_stmt(stmt_ty s){
 }
+
 static void
 assign_type_to_raise_stmt(stmt_ty s){
 }
+
 static void
 assign_type_to_try_stmt(stmt_ty s){
 }
+
 static void
 assign_type_to_assert_stmt(stmt_ty s){
 }
+
 static void
 assign_type_to_global_stmt(stmt_ty s){
 }
+
 static void
 assign_type_to_expr_stmt(stmt_ty s){
+    assign_type_to_expr(s->exprstmt.value);
 }
 
 static void
@@ -369,7 +453,7 @@ assign_type_to_boolop_expr(expr_ty e){
     for(i = 0; i < n; i ++ ) {
         assign_type_to_expr(values[i]);
     }
-    e->e_type = &t_boolean;
+    e->e_type = values[0]->e_type;
 }
 
 static void
@@ -523,12 +607,32 @@ assign_type_to_setcomp_expr(expr_ty e){
 
 static void
 assign_type_to_generator_expr(expr_ty e){
+    expr_ty elt = e->generatorexp.elt;
+    int i, n = e->generatorexp.n_com;
+    comprehension_ty* gens = e->generatorexp.generators;
+
+    char scope_name[128] = "";
+    sprintf(scope_name, "comp_%p", e);
+    type_ty tp = (type_ty) malloc ( sizeof ( struct type) );
+    tp->kind = SCOPE_KIND;
+    install_scope_variable(scope_name, tp, SE_SCOPE_KIND);
+
+    for(i = 0; i < n; i ++ ) {
+        assign_type_to_comprehension(gens[i]);
+    }
+
+    /* Now identifier in elt will appear in symbol table */
+    assign_type_to_expr(elt);
+    change_symtab_back(); /* change to current table */
+
+    e->e_type = create_generator_type(elt->e_type); /* Cannot figure out the number of elements */
+
 }
 
 static void
 assign_type_to_yield_expr(expr_ty e){
     assign_type_to_expr(e->yield.value);
-    e->e_type = e->yield.value->e_type;
+    e->e_type = create_generator_type(e->yield.value->e_type);
 }
 
 static void
