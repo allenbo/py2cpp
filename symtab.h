@@ -44,7 +44,7 @@ enum type_kind {
 
 typedef struct symtab_entry * symtab_entry_ty;
 typedef struct symtab * symtab_ty;
-
+typedef struct funcentry* funcentry_ty;
 
 struct symtab_entry {
     symtab_ty se_table;
@@ -75,6 +75,7 @@ struct symtab {
 
 
 
+
 struct  type {
     enum type_kind kind;
     char name[128];
@@ -94,12 +95,22 @@ struct  type {
     symtab_ty scope;
 
     /* for function */
-
+    stmt_ty def;  /* corresponding statement*/
+    int ind;
+    funcentry_ty tab[128];
 };
 
 
-void install_variable(expr_ty e);
-void install_variable_full(expr_ty e, enum symtab_entry_kind kind);
+struct funcentry {
+    char index[128]; /* the short of parameters */
+    int n_param;  /* number of parameters */
+    type_ty * params;
+    type_ty ret;
+    symtab_ty scope;
+};
+
+
+void install_variable(char* name, type_ty tp, enum symtab_entry_kind kind);
 void install_scope_variable(char* name, type_ty tp, enum symtab_entry_kind kind);
 type_ty lookup_variable(char* name);
 type_ty lookup_scope_variable(char* name);
@@ -108,6 +119,10 @@ void change_symtab(symtab_ty st);
 void change_symtab_back();
 
 
-void assign_type_to_ast(stmt_seq* ss);
+void functable_insert(char* name, int n, Parameter* args, type_ty tp);
+void functable_insert_ret(char* name, type_ty ret,  type_ty tp);
+type_ty functable_lookup(char* name, type_ty tp);
+
+type_ty assign_type_to_ast(stmt_seq* ss);
 
 #endif

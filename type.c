@@ -71,6 +71,10 @@ static void assign_type_to_tuple_expr(expr_ty e);
 
 static void assign_type_to_comprehension(comprehension_ty com);
 
+static void assemble_installation(expr_ty e, enum symtab_entry_kind kind);
+static void push_type_to_arguments(arguments_ty args, Parameter* param, int n);
+
+
 
 type_ty
 create_list_type(int n, type_ty t) {
@@ -131,6 +135,14 @@ create_dict_type(int n, type_ty kbase, type_ty vbase) {
     return tp;
 }
 
+type_ty
+create_func_type(stmt_ty s) {
+    type_ty tp = (type_ty) malloc (sizeof(struct type));
+    strcpy(tp->name, "LAMBDA");
+    tp->kind = FUNCTION_KIND;
+    tp->def = s;
+    return tp;
+}
 
 char* get_op_literal(operator_ty op) {
     switch(op) {
@@ -175,6 +187,7 @@ type_compare(type_ty t1, type_ty t2) {
     if(t1->kind == INTEGER_KIND) return -1;
     return 1;
 }
+
 
 static type_ty
 widen_type(type_ty t1, type_ty t2) {
@@ -238,6 +251,9 @@ assign_type_to_stmt(stmt_ty s) {
 
 static void
 assign_type_to_funcdef_stmt(stmt_ty s){
+    char* name = s->funcdef.name;
+    type_ty tp = create_func_type(s);
+    install_variable(name, tp, SE_FUNCTION_KIND);
 }
 
 static void
@@ -246,6 +262,7 @@ assign_type_to_classdef_stmt(stmt_ty s) {
 
 static void
 assign_type_to_return_stmt(stmt_ty s) {
+    assign_type_to_expr(s->ret.value);
 }
 
 static void
@@ -268,7 +285,7 @@ assign_type_to_assign_stmt(stmt_ty s) {
              * which means we has to declare the variable
              */
             targets[i]->e_type = value->e_type;
-            install_variable(targets[i]);
+            assemble_installation(targets[i], SE_VARIABLE_KIND);
         }else if(type_compare(targets[i]->e_type, value->e_type) != 0){
             /* Sometimes types of value and target are not the same
              * Like:
@@ -280,7 +297,7 @@ assign_type_to_assign_stmt(stmt_ty s) {
              */
             if(targets[i]->dable == 1) {
                 targets[i]->e_type = value->e_type;
-                install_variable_full(targets[i], SE_REUSE_KIND);
+                assemble_installation(targets[i], SE_REUSE_KIND);
             }
         }
     }
@@ -336,11 +353,11 @@ assign_type_to_for_stmt(stmt_ty s){
 
     if(target->e_type == &t_unknown) {
         target->e_type = t;
-        install_variable(target);
+        assemble_installation(target, SE_VARIABLE_KIND);
     }else if( type_compare(target->e_type, t) != 0) {
         if(target->dable == 1) {
             target->e_type = t;
-            install_variable_full(target, SE_REUSE_KIND);
+            assemble_installation(target, SE_REUSE_KIND);
         }
     }
 
@@ -651,7 +668,7 @@ assign_type_to_repr_expr(expr_ty e){
 }
 static void
 assign_type_to_call_expr(expr_ty e){
-    /*
+
     expr_ty func = e->call.func;
     int i, n = e->call.n_arg;
     Parameter* args = e->call.args;
@@ -659,19 +676,48 @@ assign_type_to_call_expr(expr_ty e){
     expr_ty karg = e->call.karg;
 
     assign_type_to_expr(func);
+
+    char name[128] = "";
     for(i = 0 ; i < n; i ++ ) {
         expr_ty ar = args[i].args;
-        expr_ty value = args[i].value;
+        assign_type_to_expr(ar);
+        strcat(name, ar->e_type->name);
+    }
+    type_ty ret = functable_lookup(name, func->e_type);
+    if(NULL == ret) {
+        functable_insert(name, n, args, func->e_type);
+        stmt_ty s = func->e_type->def;
 
-        if(value){
-            assign_type_to_expr(value);
+        /* push the type to arguments and insert them to the table */
+        push_type_to_arguments(s->funcdef.args, args, n);
+
+        arguments_ty args = s->funcdef.args;
+
+        int n = args->n_param;
+        for(i = 0; i < n; i ++) {
+            assemble_installation(args->params[i]->args, SE_VARIABLE_KIND);
         }
+
+        n = args->n_default;
+        for(i = 0; i < n; i ++ ) {
+            assemble_installation(args->default_params[i]->args, SE_VARIABLE_KIND);
+        }
+        if(NULL != args->vargs) {
+            assemble_installation(args->vargs, SE_VARIABLE_KIND);
+        }
+        if(NULL != args->kargs) {
+            assemble_installation(args->kargs, SE_VARIABLE_KIND);
+        }
+
+
+        ret = assign_type_to_ast(func->e_type->def->funcdef.body);
+        functable_insert_ret(name, ret, func->e_type);
+
+        change_symtab_back();
     }
-    if(func->e_type->kind == FUNCTION_KIND) {
-        e->e_type = func->e_type->
-    }
-    */
+    e->e_type = ret;
 }
+
 
 static void
 assign_type_to_num_expr(expr_ty e){
@@ -830,7 +876,7 @@ assign_type_to_comprehension(comprehension_ty com) {
         /* Here is for generator and iterable object */
     }
 
-    install_variable(target);
+    assemble_installation(target, SE_VARIABLE_KIND);
 
     int i;
     for(i = 0; i < com->n_test; i ++ ) {
@@ -838,11 +884,37 @@ assign_type_to_comprehension(comprehension_ty com) {
     }
 }
 
+static void
+assemble_installation(expr_ty e, enum symtab_entry_kind kind) {
+    if(e->kind = Name_kind) {
+        install_variable(e->name.id, e->e_type, kind);
+    }else{
+    }
+}
 
-void
+
+static void
+push_type_to_arguments(arguments_ty args, Parameter* params, int n) {
+    /* deal with position index and no default arguments */
+    int i;
+    for(i = 0; i < n; i ++) {
+        args->params[i]->args->e_type = params[i].args->e_type;
+    }
+
+}
+
+
+type_ty
 assign_type_to_ast(stmt_seq* ss) {
     int i = 0;
+    type_ty tp = NULL;
     for(; i < ss->size; i ++ ) {
-        assign_type_to_stmt(ss->seqs[i]);
+        stmt_ty s = ss->seqs[i];
+        assign_type_to_stmt(s);
+
+        if(s->kind == Return_kind && (tp == &t_unknown || tp == NULL)){
+            tp = s->ret.value->e_type;
+        }
     }
+    return tp;
 }

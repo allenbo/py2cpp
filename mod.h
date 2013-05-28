@@ -46,7 +46,6 @@ enum Accessibility { Private = 1, Public = 2, Protected = 3 };
 
 struct Variable {
     expr_ty args;
-    int type; /* index to type table */
     expr_ty value;
 };
 

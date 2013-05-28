@@ -57,6 +57,9 @@ create_symtab_entry(
     se->se_type = tp;
     se->se_kind = kind;
     se->se_table = t;
+
+    /* return to the scope in function defination */
+    tp->scope = t;
     return se;
 }
 
@@ -75,6 +78,39 @@ create_symtab(symtab_ty p, enum symtab_kind kind) {
 }
 
 
+static funcentry_ty
+create_funcentry(char* index, int n_param, type_ty* params, type_ty ret, symtab_ty p) {
+    funcentry_ty fe = (funcentry_ty) malloc(sizeof(struct funcentry) );
+    strcpy(fe->index, index);
+    fe->n_param = n_param;
+    fe->params = params;
+    fe->ret = ret;
+
+    symtab_ty sp = NULL;
+    sp = create_symtab(p, SK_FUNCTION_KIND);
+
+    if(p->child_capacity == 0) {
+        p->child_capacity = 8;
+        int n  = p->child_capacity;
+        p->st_children = (symtab_ty*) malloc (
+                sizeof(symtab_ty) * n);
+    }else {
+        if(p->child_capacity == p->n_child) {
+            p->child_capacity += 8;
+            int n = p->child_capacity;
+            p->st_children = (symtab_ty*) realloc( p->st_children,
+                    sizeof(symtab_ty)* n);
+        }
+    }
+    p->st_children[p->n_child++] = sp;
+    fe->scope = sp;
+
+    push_table(cur);
+    cur = sp;
+    return fe;
+}
+
+
 static void
 init_global() {
     global = create_symtab(NULL, SK_GLOBAL_KIND);
@@ -85,23 +121,11 @@ init_global() {
 }
 
 
-void
-install_variable(expr_ty e){
-    install_variable_full(e, SE_VARIABLE_KIND);
-}
 
 void
-install_variable_full(expr_ty e, enum symtab_entry_kind kind) {
+install_variable(char* name, type_ty tp, enum symtab_entry_kind kind) {
     if(NULL == global) {
         init_global();
-    }
-
-    char* name = NULL;
-    type_ty tp = NULL;
-loop:
-    if(e->kind == Name_kind) {
-        name = e->name.id;
-        tp = e->e_type;
     }
 
     if(cur->st_size == cur->st_capacity)
@@ -207,4 +231,41 @@ change_symtab(symtab_ty st) {
 
 void change_symtab_back() {
     cur = pop_table();
+}
+
+void
+functable_insert(char* name, int n, Parameter* args, type_ty tp ) {
+    type_ty ret = &t_unknown;
+    int n_param = n;
+    type_ty* params = NULL;
+    params = (type_ty*) malloc (sizeof(type_ty) * n);
+
+    int i;
+    for(i = 0; i < n; i ++ ) {
+        params[i] = args[i].args->e_type;
+    }
+
+    tp->tab[tp->ind++] = create_funcentry(name, n_param, params, ret, tp->scope);
+}
+
+void
+functable_insert_ret(char* name, type_ty ret, type_ty tp) {
+    int i, n = tp->ind;
+    for(i = 0; i < n;i ++ ) {
+        if(strcmp(name, tp->tab[i]->index) == 0) {
+            tp->tab[i]->ret = ret;
+            return;
+        }
+    }
+}
+
+type_ty
+functable_lookup(char* name, type_ty tp) {
+    int i, n = tp->ind;
+    for(i = 0; i < n;i ++ ) {
+        if(strcmp(name, tp->tab[i]->index) == 0) {
+            return tp->tab[i]->ret;
+        }
+    }
+    return NULL;
 }
