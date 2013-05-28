@@ -25,25 +25,25 @@ struct type t_integer = {INTEGER_KIND, "INT"};
 struct type t_float = {FLOAT_KIND, "FLOAT"};
 struct type t_string = {STRING_KIND,  "STR"};
 
-static void assign_type_to_stmt(stmt_ty s);
+static type_ty assign_type_to_stmt(stmt_ty s);
 static void assign_type_to_expr(expr_ty e);
 
-static void assign_type_to_funcdef_stmt(stmt_ty s);
-static void assign_type_to_classdef_stmt(stmt_ty s);
-static void assign_type_to_return_stmt(stmt_ty s);
-static void assign_type_to_delete_stmt(stmt_ty s);
-static void assign_type_to_assign_stmt(stmt_ty s);
-static void assign_type_to_augassign_stmt(stmt_ty s);
-static void assign_type_to_print_stmt(stmt_ty s);
-static void assign_type_to_for_stmt(stmt_ty s);
-static void assign_type_to_while_stmt(stmt_ty s);
-static void assign_type_to_if_stmt(stmt_ty s);
-static void assign_type_to_with_stmt(stmt_ty s);
-static void assign_type_to_raise_stmt(stmt_ty s);
-static void assign_type_to_try_stmt(stmt_ty s);
-static void assign_type_to_assert_stmt(stmt_ty s);
-static void assign_type_to_global_stmt(stmt_ty s);
-static void assign_type_to_expr_stmt(stmt_ty s);
+static type_ty assign_type_to_funcdef_stmt(stmt_ty s);
+static type_ty assign_type_to_classdef_stmt(stmt_ty s);
+static type_ty assign_type_to_return_stmt(stmt_ty s);
+static type_ty assign_type_to_delete_stmt(stmt_ty s);
+static type_ty assign_type_to_assign_stmt(stmt_ty s);
+static type_ty assign_type_to_augassign_stmt(stmt_ty s);
+static type_ty assign_type_to_print_stmt(stmt_ty s);
+static type_ty assign_type_to_for_stmt(stmt_ty s);
+static type_ty assign_type_to_while_stmt(stmt_ty s);
+static type_ty assign_type_to_if_stmt(stmt_ty s);
+static type_ty assign_type_to_with_stmt(stmt_ty s);
+static type_ty assign_type_to_raise_stmt(stmt_ty s);
+static type_ty assign_type_to_try_stmt(stmt_ty s);
+static type_ty assign_type_to_assert_stmt(stmt_ty s);
+static type_ty assign_type_to_global_stmt(stmt_ty s);
+static type_ty assign_type_to_expr_stmt(stmt_ty s);
 
 
 static void assign_type_to_binop_expr(expr_ty e);
@@ -206,7 +206,7 @@ narrow_type(type_ty t1, type_ty t2) {
     if(t2 == &t_unknown) return t2;
 }
 
-static void
+static type_ty
 assign_type_to_stmt(stmt_ty s) {
     int i;
     switch(s->kind) {
@@ -249,27 +249,31 @@ assign_type_to_stmt(stmt_ty s) {
     }
 }
 
-static void
+static type_ty
 assign_type_to_funcdef_stmt(stmt_ty s){
     char* name = s->funcdef.name;
     type_ty tp = create_func_type(s);
     install_variable(name, tp, SE_FUNCTION_KIND);
+    return &t_unknown;
 }
 
-static void
+static type_ty
 assign_type_to_classdef_stmt(stmt_ty s) {
+    return &t_unknown;
 }
 
-static void
+static type_ty
 assign_type_to_return_stmt(stmt_ty s) {
     assign_type_to_expr(s->ret.value);
+    return s->ret.value->e_type;
 }
 
-static void
+static type_ty
 assign_type_to_delete_stmt(stmt_ty s) {
+    return &t_unknown;
 }
 
-static void
+static type_ty
 assign_type_to_assign_stmt(stmt_ty s) {
     expr_ty value = s->assign.value;
     int n = s->assign.n_target;
@@ -301,18 +305,20 @@ assign_type_to_assign_stmt(stmt_ty s) {
             }
         }
     }
+    return &t_unknown;
 }
 
-static void
+static type_ty
 assign_type_to_augassign_stmt(stmt_ty s){
     expr_ty target = s->augassignstmt.target;
     expr_ty value = s->augassignstmt.value;
 
     assign_type_to_expr(target);
     assign_type_to_expr(value);
+    return &t_unknown;
 }
 
-static void
+static type_ty
 assign_type_to_print_stmt(stmt_ty s){
     expr_ty dest = s->print.dest;
     expr_ty * values = s->print.values;
@@ -324,10 +330,11 @@ assign_type_to_print_stmt(stmt_ty s){
     for(i = 0; i < n; i ++ ) {
         assign_type_to_expr(values[i]);
     }
+    return &t_unknown;
 }
 
 
-static void
+static type_ty
 assign_type_to_for_stmt(stmt_ty s){
     expr_ty target = s->forstmt.target;
     expr_ty iter = s->forstmt.iter;
@@ -361,54 +368,75 @@ assign_type_to_for_stmt(stmt_ty s){
         }
     }
 
-    assign_type_to_ast(s->forstmt.body);
-    if(s->forstmt.orelse)
-        assign_type_to_ast(s->forstmt.orelse);
+    type_ty tp = &t_unknown;
+    tp = assign_type_to_ast(s->forstmt.body);
+    if(s->forstmt.orelse) {
+        type_ty t;
+        if((t = assign_type_to_ast(s->forstmt.orelse)) != &t_unknown && tp == &t_unknown)
+            tp = t;
+    }
+    return tp;
 }
 
 
-static void
+static type_ty
 assign_type_to_while_stmt(stmt_ty s){
     expr_ty test = s->whilestmt.test;
     assign_type_to_expr(test);
 
-    assign_type_to_ast(s->whilestmt.body);
-    if(s->whilestmt.orelse)
-        assign_type_to_ast(s->whilestmt.orelse);
+    type_ty tp = &t_unknown;
+    tp = assign_type_to_ast(s->whilestmt.body);
+    if(s->whilestmt.orelse) {
+        type_ty t;
+        if((t = assign_type_to_ast(s->whilestmt.orelse)) != &t_unknown && tp == &t_unknown)
+            tp = t;
+    }
+    return tp;
 }
 
-static void
+static type_ty
 assign_type_to_if_stmt(stmt_ty s){
     expr_ty test = s->ifstmt.test;
     assign_type_to_expr(test);
 
-    assign_type_to_ast(s->ifstmt.body);
-    if(s->ifstmt.orelse)
-        assign_type_to_ast(s->ifstmt.orelse);
+    type_ty tp = &t_unknown;
+    tp = assign_type_to_ast(s->ifstmt.body);
+    if(s->ifstmt.orelse) {
+        type_ty t;
+        if((t = assign_type_to_ast(s->ifstmt.orelse)) != &t_unknown && tp != &t_unknown)
+            tp = t;
+    }
+    return tp;
 }
-static void
+static type_ty
 assign_type_to_with_stmt(stmt_ty s){
+    return &t_unknown;
 }
 
-static void
+static type_ty
 assign_type_to_raise_stmt(stmt_ty s){
+    return &t_unknown;
 }
 
-static void
+static type_ty
 assign_type_to_try_stmt(stmt_ty s){
+    return &t_unknown;
 }
 
-static void
+static type_ty
 assign_type_to_assert_stmt(stmt_ty s){
+    return &t_unknown;
 }
 
-static void
+static type_ty
 assign_type_to_global_stmt(stmt_ty s){
+    return &t_unknown;
 }
 
-static void
+static type_ty
 assign_type_to_expr_stmt(stmt_ty s){
     assign_type_to_expr(s->exprstmt.value);
+    return &t_unknown;
 }
 
 static void
@@ -907,14 +935,14 @@ push_type_to_arguments(arguments_ty args, Parameter* params, int n) {
 type_ty
 assign_type_to_ast(stmt_seq* ss) {
     int i = 0;
-    type_ty tp = NULL;
+    type_ty tp = &t_unknown;
+    type_ty t;
     for(; i < ss->size; i ++ ) {
         stmt_ty s = ss->seqs[i];
-        assign_type_to_stmt(s);
+        t = assign_type_to_stmt(s);
 
-        if(s->kind == Return_kind && (tp == &t_unknown || tp == NULL)){
-            tp = s->ret.value->e_type;
-        }
+        if(t != &t_unknown && tp == &t_unknown)
+            tp = t;
     }
     return tp;
 }
