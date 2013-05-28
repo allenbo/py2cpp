@@ -259,6 +259,12 @@ assign_type_to_funcdef_stmt(stmt_ty s){
 
 static type_ty
 assign_type_to_classdef_stmt(stmt_ty s) {
+    type_ty tp = (type_ty) malloc (sizeof(struct type));
+    tp->kind = CLASS_KIND;
+    char* name = s->classdef.name;
+    install_scope_variable(name, tp, SE_CLASS_KIND);
+    assign_type_to_ast(s->classdef.body);
+    change_symtab_back();
     return &t_unknown;
 }
 
@@ -270,6 +276,12 @@ assign_type_to_return_stmt(stmt_ty s) {
 
 static type_ty
 assign_type_to_delete_stmt(stmt_ty s) {
+    int i, n = s->del.n_target;
+    expr_ty * targets = s->del.targets;
+
+    for(i = 0; i < n; i ++ ){
+        assign_type_to_expr(targets[i]);
+    }
     return &t_unknown;
 }
 

@@ -59,7 +59,8 @@ create_symtab_entry(
     se->se_table = t;
 
     /* return to the scope in function defination */
-    tp->scope = t;
+    if(tp->scope == NULL)
+        tp->scope = t;
     return se;
 }
 
