@@ -52,7 +52,6 @@ struct symtab_entry {
     char c_name[128];
     enum symtab_entry_kind se_kind;
     type_ty se_type;
-    stmt_ty se_node;
     symtab_ty se_scope;
 };
 
@@ -98,6 +97,7 @@ struct  type {
     stmt_ty def;  /* corresponding statement*/
     int ind;
     funcentry_ty tab[128];
+    type_ty ctype;  /* the type of the class */
 };
 
 
@@ -118,6 +118,8 @@ type_ty lookup_scope_variable(char* name);
 void change_symtab(symtab_ty st);
 void change_symtab_back();
 
+
+int has_constructor();
 
 void functable_insert(char* name, int n, Parameter* args, type_ty tp);
 void functable_insert_ret(char* name, type_ty ret,  type_ty tp);

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <assert.h>
 #include "Python-ast.h"
+#include "context.h"
 
 char* newTemp() {
     static int i = 0;
@@ -72,7 +73,8 @@ static void assign_type_to_tuple_expr(expr_ty e);
 static void assign_type_to_comprehension(comprehension_ty com);
 
 static void assemble_installation(expr_ty e, enum symtab_entry_kind kind);
-static void push_type_to_arguments(arguments_ty args, Parameter* param, int n);
+static void push_type_to_arguments(arguments_ty args,
+        type_ty ctype, Parameter* param, int n);
 
 
 
@@ -253,6 +255,10 @@ static type_ty
 assign_type_to_funcdef_stmt(stmt_ty s){
     char* name = s->funcdef.name;
     type_ty tp = create_func_type(s);
+
+    if((get_context())->inclass == 1)
+        tp->ctype = (get_context())->ctype;
+
     install_variable(name, tp, SE_FUNCTION_KIND);
     return &t_unknown;
 }
@@ -262,9 +268,25 @@ assign_type_to_classdef_stmt(stmt_ty s) {
     type_ty tp = (type_ty) malloc (sizeof(struct type));
     tp->kind = CLASS_KIND;
     char* name = s->classdef.name;
+
+    /* function defined in the class will get
+     * some information of the class
+     */
+    (get_context())->inclass = 1;
+    (get_context())->classname = name;
+    (get_context())->ctype = tp;
+
     install_scope_variable(name, tp, SE_CLASS_KIND);
     assign_type_to_ast(s->classdef.body);
+
+    if(!has_constructor()) {
+        type_ty p = create_func_type(NULL);
+        p->ctype = tp;
+        install_variable("__init__", p, SE_FUNCTION_KIND);
+    }
+
     change_symtab_back();
+    (get_context())->inclass = 0;
     return &t_unknown;
 }
 
@@ -717,6 +739,20 @@ assign_type_to_call_expr(expr_ty e){
 
     assign_type_to_expr(func);
 
+    if(func->e_type->kind == CLASS_KIND) {
+        type_ty tmp = func->e_type;
+
+        change_symtab(func->e_type->scope);
+        func->e_type = lookup_scope_variable("__init__");
+        change_symtab_back();
+
+        if(func->e_type->def == NULL) {
+            e->e_type = tmp;
+            return;
+        }
+    }
+
+
     char name[128] = "";
     for(i = 0 ; i < n; i ++ ) {
         expr_ty ar = args[i].args;
@@ -729,7 +765,7 @@ assign_type_to_call_expr(expr_ty e){
         stmt_ty s = func->e_type->def;
 
         /* push the type to arguments and insert them to the table */
-        push_type_to_arguments(s->funcdef.args, args, n);
+        push_type_to_arguments(s->funcdef.args, func->e_type->ctype, args, n);
 
         arguments_ty args = s->funcdef.args;
 
@@ -934,11 +970,18 @@ assemble_installation(expr_ty e, enum symtab_entry_kind kind) {
 
 
 static void
-push_type_to_arguments(arguments_ty args, Parameter* params, int n) {
+push_type_to_arguments(arguments_ty args,
+        type_ty ctype, Parameter* params, int n) {
     /* deal with position index and no default arguments */
-    int i;
+    int i, from;
+    if(ctype != NULL) {
+        from = 1;
+        args->params[0]->args->e_type = ctype;
+    }
+    else
+        from = 0;
     for(i = 0; i < n; i ++) {
-        args->params[i]->args->e_type = params[i].args->e_type;
+        args->params[i + from]->args->e_type = params[i].args->e_type;
     }
 
 }

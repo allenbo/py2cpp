@@ -270,3 +270,15 @@ functable_lookup(char* name, type_ty tp) {
     }
     return NULL;
 }
+
+int
+has_constructor() {
+    if(cur->st_kind != SK_CLASS_KIND) return 1;
+
+    int i, n = cur->st_size;
+    for (i = 0; i < n; i ++ ) {
+        if(strcmp(cur->st_symbols[i]->se_name, "__init__") == 0)
+            return 1;
+    }
+    return 0;
+}

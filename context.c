@@ -1,7 +1,9 @@
 #include "context.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 static context_ty con = NULL;
-
 
 static context_ty
 init_con() {
