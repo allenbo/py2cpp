@@ -444,6 +444,28 @@ assign_type_to_if_stmt(stmt_ty s){
 }
 static type_ty
 assign_type_to_with_stmt(stmt_ty s){
+    expr_ty expr = s->with.context_expr;
+    expr_ty vars = s->with.optional_vars;
+
+    stmt_seq* body = s->with.body;
+
+    assign_type_to_expr(expr);
+    if(vars != NULL) {
+        assign_type_to_expr(vars);
+
+        if(vars->e_type == &t_unknown) {
+            vars->e_type = expr->e_type;
+            assemble_installation(vars, SE_VARIABLE_KIND);
+        }else if( type_compare(vars->e_type, expr->e_type) != 0) {
+            if(vars->dable == 1) {
+                vars->e_type = expr->e_type;
+                assemble_installation(vars, SE_REUSE_KIND);
+            }
+        }
+    }
+
+    assign_type_to_ast(body);
+
     return &t_unknown;
 }
 
