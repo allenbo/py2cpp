@@ -13,7 +13,7 @@ extern struct type t_string;
 
 static symtab_ty global = NULL;
 static symtab_ty cur = NULL;
-static symtab_ty func_table = NULL;
+static symtab_ty file = NULL;
 
 static symtab_ty tables[1000];
 int tind = 0;
@@ -21,7 +21,7 @@ int tind = 0;
 
 symtab_ty get_current_symtab() { return cur; }
 symtab_ty get_global_symtab() { return global; }
-
+symtab_ty get_curfile_symtab() { return file; }
 
 void push_table(symtab_ty s) {
     tables[tind ++ ] = s;
@@ -59,7 +59,7 @@ create_symtab_entry(
     se->se_table = t;
 
     /* return to the scope in function defination */
-    if(tp->scope == NULL)
+    if(tp && tp->scope == NULL)
         tp->scope = t;
     return se;
 }
@@ -119,6 +119,7 @@ init_global() {
     type_ty tp = (type_ty) malloc ( sizeof( struct type));
     tp->kind = MODULE_KIND;
     install_scope_variable("__test__", tp, SE_MODULE_KIND);
+    file = tp->scope;
 }
 
 
@@ -207,6 +208,24 @@ lookup_variable(char* name) {
         st = st->st_parent;
     }
     return &t_unknown;
+}
+
+void
+change_type(char* name, type_ty tp ){
+    symtab_ty st = cur;
+    while(st) {
+        int i;
+        int n = st->st_size;
+        symtab_entry_ty se = NULL;
+        for(i = n - 1; i >= 0; i -- ) {
+            se = st->st_symbols[i];
+            if(strcmp(se->se_name, name) == 0) {
+                se->se_type = tp;
+                return ;
+            }
+        }
+        st = st->st_parent;
+    }
 }
 
 type_ty

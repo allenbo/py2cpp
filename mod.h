@@ -38,9 +38,9 @@ typedef struct comprehension * comprehension_ty;
 
 enum stmt_kind { FuncDef_kind = 1, ClassDef_kind = 2, Return_kind = 3, Delete_kind = 4,
                 Assign_kind = 5, AugAssign_kind = 6, Print_kind = 7, For_kind = 8, While_kind = 9,
-                If_kind = 10, With_kind = 11, Raise_kind = 12, Try_kind = 13, 
-                Assert_kind = 15, Import_kind = 16, ImportFrom_kind = 18, 
-                Exec_kind = 18, Global_kind = 19, Expr_kind = 20, Pass_kind = 21, 
+                If_kind = 10, With_kind = 11, Raise_kind = 12, Try_kind = 13,
+                Assert_kind = 15, Import_kind = 16, ImportFrom_kind = 18,
+                Exec_kind = 18, Global_kind = 19, Expr_kind = 20, Pass_kind = 21,
                 Break_kind = 22, Continue_kind = 23};
 enum Accessibility { Private = 1, Public = 2, Protected = 3 };
 
@@ -68,9 +68,9 @@ struct arguments {
 
 typedef struct FuncDef {
     char name[NAME_MAX_SIZE];
-    arguments_ty args; 
+    arguments_ty args;
     stmt_seq * body;
-    
+
     int  is_class_member;
     enum Accessibility acc;
     char fullname[NAME_MAX_SIZE];
@@ -165,7 +165,6 @@ typedef struct {
     expr_ty msg;
 }Assert;
 
-
 typedef struct {
     int n_module;
     char** modules;
@@ -219,9 +218,9 @@ struct _stmt {
 };
 
 enum expr_kind { BoolOp_kind = 1,BinOp_kind = 2,UnaryOp_kind = 3,Lambda_kind = 4,IfExp_kind = 5,
-    Dict_kind = 6,Set_kind = 7,ListComp_kind = 8,SetComp_kind = 9, DictComp_kind = 10, 
+    Dict_kind = 6,Set_kind = 7,ListComp_kind = 8,SetComp_kind = 9, DictComp_kind = 10,
     GeneratorExp_kind = 11, Yield_kind = 12, Compare_kind= 13, Call_kind = 14, Repr_kind = 15,
-    Num_kind = 16, Str_kind = 17, Attribute_kind = 18, Subscript_kind =19, Name_kind = 20, 
+    Num_kind = 16, Str_kind = 17, Attribute_kind = 18, Subscript_kind =19, Name_kind = 20,
     List_kind = 21, Tuple_kind = 22 };
 
 

@@ -245,7 +245,7 @@ assign_type_to_stmt(stmt_ty s) {
         case Assert_kind:
             return assign_type_to_assert_stmt(s);
         case Global_kind:
-            return assign_type_to_assert_stmt(s);
+            return assign_type_to_global_stmt(s);
         case Expr_kind:
             return assign_type_to_expr_stmt(s);
     }
@@ -324,6 +324,15 @@ assign_type_to_assign_stmt(stmt_ty s) {
              */
             targets[i]->e_type = value->e_type;
             assemble_installation(targets[i], SE_VARIABLE_KIND);
+        }else if(targets[i]->e_type == NULL) {
+            /* This variable must be the global variable, when it's inserted
+             * into symbol table, we haven't know its type
+             * So the type is empty
+             * Now we can insert the type for variable
+             */
+            assert(targets[i]->kind == Name_kind);
+            targets[i]->e_type = value->e_type;
+            change_type(targets[i]->name.id, targets[i]->e_type);
         }else if(type_compare(targets[i]->e_type, value->e_type) != 0){
             /* Sometimes types of value and target are not the same
              * Like:
@@ -471,21 +480,77 @@ assign_type_to_with_stmt(stmt_ty s){
 
 static type_ty
 assign_type_to_raise_stmt(stmt_ty s){
+    if(s->raise.type != NULL)
+        assign_type_to_expr(s->raise.type);
+    if(s->raise.inst != NULL)
+        assign_type_to_expr(s->raise.inst);
+    if(s->raise.tback != NULL)
+        assign_type_to_expr(s->raise.tback);
     return &t_unknown;
 }
 
 static type_ty
 assign_type_to_try_stmt(stmt_ty s){
-    return &t_unknown;
+    type_ty tp = NULL;
+
+    tp = assign_type_to_ast(s->trystmt.body);
+    int i, n = s->trystmt.n_handler;
+    exception_handler_ty* handlers = s->trystmt.handlers;
+
+    for(i = 0; i < n; i ++ ) {
+        type_ty tmp;
+        assign_type_to_expr(handlers[i]->type);
+
+        /* install the variable of value */
+        if(handlers[i]->value) {
+            handlers[i]->value->e_type = handlers[i]->type->e_type;
+            assemble_installation(handlers[i]->value, SE_VARIABLE_KIND);
+        }
+        tmp = assign_type_to_ast(handlers[i]->body);
+        if(tmp != &t_unknown && tp == &t_unknown)
+            tp = tmp;
+    }
+
+    if(s->trystmt.orelse != NULL) {
+        type_ty tmp;
+        tmp = assign_type_to_ast(s->trystmt.orelse);
+        if(tmp != &t_unknown && tp == &t_unknown)
+            tp = tmp;
+    }
+    if(s->trystmt.final != NULL) {
+        type_ty tmp;
+        tmp = assign_type_to_ast(s->trystmt.final);
+        if(tmp != &t_unknown && tp == &t_unknown)
+            tp = tmp;
+    }
+    return tp;
 }
 
 static type_ty
 assign_type_to_assert_stmt(stmt_ty s){
+    assign_type_to_expr(s->assert.test);
+    if(s->assert.msg != NULL)
+        assign_type_to_expr(s->assert.msg);
     return &t_unknown;
 }
 
 static type_ty
 assign_type_to_global_stmt(stmt_ty s){
+    int i, n = s->global.n_name;
+    expr_ty* names = s->global.names;
+    change_symtab(get_curfile_symtab());
+
+    for(i = 0; i < n; i ++ ) {
+        assert(names[i]->kind == Name_kind);
+        type_ty tp = NULL;
+        tp = lookup_scope_variable(names[i]->name.id);
+
+        /* hasn't declared , and we still don't know the type of the variable*/
+        if(tp == &t_unknown) {
+            assemble_installation(names[i], SE_VARIABLE_KIND);
+        }
+    }
+    change_symtab_back();
     return &t_unknown;
 }
 

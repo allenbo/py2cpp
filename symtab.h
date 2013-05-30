@@ -109,11 +109,15 @@ struct funcentry {
     symtab_ty scope;
 };
 
+symtab_ty get_current_symtab();
+symtab_ty get_global_symtab();
+symtab_ty get_curfile_symtab();
 
 void install_variable(char* name, type_ty tp, enum symtab_entry_kind kind);
 void install_scope_variable(char* name, type_ty tp, enum symtab_entry_kind kind);
 type_ty lookup_variable(char* name);
 type_ty lookup_scope_variable(char* name);
+void change_type(char* name, type_ty tp);
 
 void change_symtab(symtab_ty st);
 void change_symtab_back();
