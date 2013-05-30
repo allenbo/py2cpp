@@ -1011,9 +1011,14 @@ assign_type_to_tuple_expr(expr_ty e){
     for(i = 0; i < n; i ++ ) {
         t = e->tuple.elts[i];
         assign_type_to_expr(t);
-        tuple_set_type(e->e_type, i, t->e_type);
         if(t->dable == 1)
             e->dable = 1;
+        if(t->e_type == &t_unknown) {
+            free(e->e_type);
+            e->e_type = &t_unknown;
+            break;
+        }
+        tuple_set_type(e->e_type, i, t->e_type);
     }
 }
 
@@ -1049,9 +1054,15 @@ assign_type_to_comprehension(comprehension_ty com) {
 
 static void
 assemble_installation(expr_ty e, enum symtab_entry_kind kind) {
-    if(e->kind = Name_kind) {
+    if(e->kind == Name_kind && strcmp(e->name.id , "_") != 0) {
         install_variable(e->name.id, e->e_type, kind);
-    }else{
+    }else if(e->kind == Tuple_kind){
+        int i, n = e->tuple.n_elt;
+        expr_ty * elts = e->tuple.elts;
+        for(i = 0; i < n; i ++ ) {
+            elts[i]->e_type = e->e_type->elts[i];
+            assemble_installation(elts[i], SE_VARIABLE_KIND);
+        }
     }
 }
 
