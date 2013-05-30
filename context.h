@@ -3,9 +3,12 @@
 #include "symtab.h"
 
 typedef struct {
+    /* whether the function is a class member or not */
     int inclass;
     char* classname;
     type_ty ctype;
+
+    int indent;
 }context;
 
 typedef context * context_ty;
