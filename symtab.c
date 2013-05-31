@@ -301,3 +301,18 @@ has_constructor() {
     }
     return 0;
 }
+
+
+void
+output_symtab(FILE* fout, symtab_ty st) {
+    if(NULL == st) return;
+
+    char buf[128] = "";
+    int i, n = st->st_size;
+    for(i = 0; i < n; i ++ ){
+        symtab_entry_ty se = st->st_symbols[i];
+        type_ty tp = se->se_type;
+        sprintf(buf, "%s %s;\n", tp->name, se->se_name);
+        fprintf(fout, "%s", buf);
+    }
+}

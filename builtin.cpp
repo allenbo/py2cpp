@@ -41,9 +41,9 @@ class pyobj {
         pyobj(int k): kind(k) {}
         int kind;
         virtual _py_str* __repr__() {}
-        virtual pyobj* add(pyobj* a) {}
-        virtual pyobj* sub(pyobj* a) {}
-        virtual pyobj* mul(pyobj* a) {}
+        virtual pyobj* __add__(pyobj* a) {}
+        virtual pyobj* __sub__(pyobj* a) {}
+        virtual pyobj* __mul__(pyobj* a) {}
 };
 
 class pyiter {
@@ -65,13 +65,13 @@ class _py_str: public pyobj {
             return new _py_str(s);
         }
 
-        _py_str* add(pyobj* o ) {
+        _py_str* __add__(pyobj* o ) {
             _py_str* oo = dynamic_cast<_py_str*>(o);
             string ret = this->s + oo->s;
             return new _py_str(ret);
         }
 
-        _py_str* mul(pyobj* o);
+        _py_str* __mul__(pyobj* o);
         const char* str() { return s.c_str(); }
 
     private:
@@ -82,18 +82,18 @@ class _py_str: public pyobj {
 class _py_int: public pyobj {
     public:
         _py_int(long long a): i(a), pyobj(OINT) { }
-        _py_int* add(pyobj* a) {
+        _py_int* __add__(pyobj* a) {
             _py_int * aa = dynamic_cast< _py_int * >(a);
             long long ri = this->i + aa->i;
             return new _py_int(ri);
         }
 
-        _py_int* sub(pyobj* a) {
+        _py_int* __sub__(pyobj* a) {
             _py_int * aa = dynamic_cast< _py_int * >(a);
             long long ri = this->i - aa->i;
             return new _py_int(ri);
         }
-        _py_int* mul(pyobj* a) {
+        _py_int* __mul__(pyobj* a) {
             _py_int * aa = dynamic_cast< _py_int * >(a);
             long long ri = this->i * aa->i;
             return new _py_int(ri);
@@ -126,7 +126,7 @@ class _py_list: public pyobj, public  pyiter{
             }
         }
 
-        _py_list<T>* add(pyobj* a) {
+        _py_list<T>* __add__(pyobj* a) {
             _py_list<T>* aa = dynamic_cast<_py_list<T>*>(a);
             _py_list<T>* ret = new _py_list<T>(this);
             for(int i  = 0; i < aa->elements.size(); i ++ ) {
@@ -135,7 +135,7 @@ class _py_list: public pyobj, public  pyiter{
             return ret;
         }
 
-        _py_list<T>* mul(pyobj* a) {
+        _py_list<T>* __mul__(pyobj* a) {
             _py_int * aa = dynamic_cast<_py_int*> (a);
             long long cnt = aa->getInt();
             _py_list<T> * ret = new _py_list<T>(0);
@@ -231,7 +231,7 @@ class _py_lambda : public pyobj {
         string name;
 
 };
-_py_str* _py_str::mul(pyobj* o) {
+_py_str* _py_str::__mul__(pyobj* o) {
     _py_int* oo = dynamic_cast<_py_int*>(o);
     long long time = oo->getInt();
     string ret;

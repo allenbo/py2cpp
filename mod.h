@@ -397,8 +397,7 @@ struct _expr {
         Tuple tuple;
     };
     type_ty e_type;
-    char addr[100];
-    int isplain;
+    char ann[128];
     int dable;
     int lineno;
     int col_offset;

@@ -22,9 +22,9 @@ char* newIterator() {
 struct type t_unknown  = {UNKNOWN_KIND,  "VOID"};
 struct type t_char = {CHAR_KIND, "CHAR"};
 struct type t_boolean = {BOOLEAN_KIND, "BOOL"};
-struct type t_integer = {INTEGER_KIND, "INT"};
-struct type t_float = {FLOAT_KIND, "FLOAT"};
-struct type t_string = {STRING_KIND,  "STR"};
+struct type t_integer = {INTEGER_KIND, "PINT"};
+struct type t_float = {FLOAT_KIND, "PFLOAT"};
+struct type t_string = {STRING_KIND,  "PSTR"};
 
 static type_ty assign_type_to_stmt(stmt_ty s);
 static void assign_type_to_expr(expr_ty e);
@@ -81,7 +81,7 @@ static void push_type_to_arguments(arguments_ty args,
 type_ty
 create_list_type(int n, type_ty t) {
     type_ty tp = (type_ty) malloc ( sizeof(struct type) );
-    sprintf(tp->name, "LIST");
+    sprintf(tp->name, "PLIST");
     tp->kind = LIST_KIND;
     tp->base = t;
     return tp;
@@ -91,7 +91,7 @@ create_list_type(int n, type_ty t) {
 type_ty
 create_set_type(int n, type_ty t) {
     type_ty tp = (type_ty) malloc (sizeof(struct type));
-    strcpy(tp->name, "SET");
+    strcpy(tp->name, "PSET");
     tp->kind = SET_KIND;
     tp->base = t;
     return tp;
@@ -101,7 +101,7 @@ create_set_type(int n, type_ty t) {
 type_ty
 create_generator_type(type_ty t) {
     type_ty tp = (type_ty) malloc ( sizeof(struct type) );
-    sprintf(tp->name, "GENERATOR");
+    sprintf(tp->name, "PGENERATOR");
     tp->kind = GENERATOR_KIND;
     tp->base = t;
     return tp;
@@ -111,7 +111,7 @@ create_generator_type(type_ty t) {
 type_ty
 create_tuple_type(int n) {
     type_ty tp = (type_ty) malloc ( sizeof(struct type) );
-    sprintf(tp->name, "TUPLE");
+    sprintf(tp->name, "PTUPLE");
     tp->kind = TUPLE_KIND;
     tp->n_elt = n;
 
@@ -130,7 +130,7 @@ tuple_set_type(type_ty tuple, int i, type_ty t) {
 type_ty
 create_dict_type(int n, type_ty kbase, type_ty vbase) {
     type_ty tp = (type_ty) malloc (sizeof(struct type));
-    sprintf(tp->name, "DICT");
+    sprintf(tp->name, "PDICT");
     tp->kind = DICT_KIND;
     tp->kbase = kbase;
     tp->vbase = vbase;
@@ -140,7 +140,7 @@ create_dict_type(int n, type_ty kbase, type_ty vbase) {
 type_ty
 create_func_type(stmt_ty s) {
     type_ty tp = (type_ty) malloc (sizeof(struct type));
-    strcpy(tp->name, "LAMBDA");
+    strcpy(tp->name, "PLAMBDA");
     tp->kind = FUNCTION_KIND;
     tp->def = s;
     return tp;
