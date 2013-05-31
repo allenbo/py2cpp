@@ -63,6 +63,12 @@ char* get_unaryop_literal(unaryop_ty op) {
     }
 }
 
+char* get_boolop_literal(boolop_ty op) {
+    switch(op) {
+        case And: return "&&";
+        case Or: return "||";
+    }
+}
 
 char* new_temp() {
     static int ind = 0;
@@ -153,8 +159,10 @@ gen_cpp_for_ast(stmt_seq* ss) {
 static void gen_cpp_for_stmt(stmt_ty s){
     switch(s->kind) {
         case Break_kind:
+            fprintf(fout, "break;\n");
             break;
         case Continue_kind:
+            fprintf(fout, "continue;\n");
             break;
         case FuncDef_kind:
             return gen_cpp_for_funcdef_stmt(s);
@@ -361,6 +369,10 @@ gen_cpp_for_global_stmt(stmt_ty s){
 
 static void
 gen_cpp_for_expr_stmt(stmt_ty s){
+    annotate_for_expr(s->exprstmt.value);
+    char buf[512] = "";
+    sprintf(buf, "%s;\n", s->exprstmt.value->ann);
+    fprintf(fout, "%s", buf);
 }
 
 static void
@@ -377,6 +389,27 @@ annotate_for_binop_expr(expr_ty e){
 }
 static void
 annotate_for_boolop_expr(expr_ty e){
+    char* tmp = new_temp();
+    strcpy(e->ann, tmp);
+
+    expr_ty* values = e->boolop.values;
+    int i, n = e->boolop.n_value;
+    boolop_ty op = e->boolop.op;
+
+    char buf[512] = "";
+    sprintf(buf, "%s %s;\n", values[0]->e_type->name, tmp);
+    fprintf(fout, "%s", buf);
+
+    buf[0] = '\0';
+    for(i = 0; i < n; i ++ ) {
+        annotate_for_expr(values[i]);
+        sprintf(buf + strlen(buf), "(%s = (%s))->__nonzero__()", tmp, values[i]->ann);
+        if(i != n -1) {
+            sprintf(buf + strlen(buf) , " %s ", get_boolop_literal(op));
+        }
+    }
+    fprintf(fout, "%s;\n", buf);
+
 }
 static void
 annotate_for_unaryop_expr(expr_ty e){
