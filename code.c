@@ -265,6 +265,10 @@ gen_cpp_for_assign_stmt(stmt_ty s){
     char buf[512] = "";
     annotate_for_expr(value);
     for(i = 0; i < n ; i ++){
+        if(targets[i]->kind == Subscript_kind) {
+            (get_context())->setitem = 1;
+            (get_context())->itemname = value->ann;
+        }
         annotate_for_expr(targets[i]);
         switch(targets[i]->kind) {
             case Tuple_kind:
@@ -273,6 +277,10 @@ gen_cpp_for_assign_stmt(stmt_ty s){
                 sprintf(buf, "%s = %s;\n", targets[i]->ann, value->ann);
                 fprintf(fout, "%s", buf);
                 break;
+            case Subscript_kind:
+                 sprintf(buf, "%s;\n", targets[i]->ann);
+                 fprintf(fout, "%s", buf);
+                break;
         }
     }
     return;
@@ -280,6 +288,17 @@ gen_cpp_for_assign_stmt(stmt_ty s){
 
 static void
 gen_cpp_for_augassign_stmt(stmt_ty s){
+    expr_ty target = s->augassignstmt.target;
+    operator_ty op = s->augassignstmt.op;
+    expr_ty value = s->augassignstmt.value;
+
+    annotate_for_expr(value);
+    annotate_for_expr(target);
+    char* lop = get_augop_literal(op);
+
+    char buf[512] = "";
+    sprintf(buf, "%s->%s(%s);\n", target->ann, lop, value->ann);
+    fprintf(fout, "%s", buf);
 }
 
 static void
@@ -503,6 +522,72 @@ annotate_for_attribute_expr(expr_ty e){
 }
 static void
 annotate_for_subscript_expr(expr_ty e){
+    expr_ty value = e->sub.value;
+    int i, n = e->sub.n_slice;
+    slice_ty * slices = e->sub.slices;
+
+    if((get_context())->setitem) {
+        (get_context())->setitem = 0;
+        annotate_for_expr(value);
+        /* Some case there are multiple subscript in python
+         * but we don't consider it here
+         * So what we are gonna do is we're gonna take n equals to 1
+         */
+        slice_ty slice = slices[0];
+        if(slice->kind == Index_kind) {
+            annotate_for_expr(slice->index.value);
+            sprintf(e->ann, "(%s)->__setitem__( %s , %s)", value->ann,
+                    slice->index.value->ann, (get_context())->itemname);
+        }else if(slice->kind == Slice_kind) {
+            char* lower = "NULL";
+            char* upper = "NULL";
+            char* step = "NULL";
+
+            expr_ty l = slice->slice.lower;
+            expr_ty u = slice->slice.upper;
+            expr_ty s = slice->slice.step;
+
+            if(NULL != l ) {
+                annotate_for_expr(l);
+                lower = l->ann;
+            }
+            if(NULL != u ) {
+                annotate_for_expr(u);
+                upper = u->ann;
+            }
+
+            sprintf(e->ann, "(%s)->__setslice__( %s , %s, %s)", value->ann,
+                    lower, upper, (get_context())->itemname);
+        }
+    }else {
+        annotate_for_expr(value);
+        slice_ty slice = slices[0];
+        if(slice->kind == Index_kind) {
+            annotate_for_expr(slice->index.value);
+            sprintf(e->ann, "(%s)->__getitem__( %s )", value->ann,
+                    slice->index.value->ann);
+        }else if(slice->kind == Slice_kind) {
+            char* lower = "NULL";
+            char* upper = "NULL";
+            char* step = "NULL";
+
+            expr_ty l = slice->slice.lower;
+            expr_ty u = slice->slice.upper;
+            expr_ty s = slice->slice.step;
+
+            if(NULL != l ) {
+                annotate_for_expr(l);
+                lower = l->ann;
+            }
+            if(NULL != u ) {
+                annotate_for_expr(u);
+                upper = u->ann;
+            }
+
+            sprintf(e->ann, "(%s)->__getslice__( %s , %s)", value->ann,
+                    lower, upper);
+        }
+    }
 }
 static void
 annotate_for_name_expr(expr_ty e){

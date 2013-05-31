@@ -9,6 +9,9 @@ typedef struct {
     type_ty ctype;
 
     int indent;
+
+    int setitem;
+    char* itemname;
 }context;
 
 typedef context * context_ty;
