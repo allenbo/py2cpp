@@ -146,42 +146,6 @@ create_func_type(stmt_ty s) {
     return tp;
 }
 
-char* get_op_literal(operator_ty op) {
-    switch(op) {
-        case Add: return "+";
-        case Sub: return "-";
-        case Mult: return "*";
-        case Div:  return "/";
-        case Mod:  return "\%";
-        case LShift: return "<<";
-        case RShift: return ">>";
-        case BitOr:  return "|";
-        case BitXor:return "^";
-        case BitAnd:  return "&";
-    }
-}
-
-
-char* get_cmp_literal(compop_ty op) {
-    switch(op) {
-        case Eq: return "==";
-        case NotEq: return "!=";
-        case Lt: return "<";
-        case LtE: return "<=";
-        case Gt: return ">";
-        case GtE: return ">=";
-    }
-}
-
-char* get_unaryop_literal(unaryop_ty op) {
-    switch(op) {
-        case Invert: return "~";
-        case UAdd: return "+";
-        case USub: return "-";
-        case Not: return "!";
-    }
-}
-
 static int
 type_compare(type_ty t1, type_ty t2) {
     if(t1 == t2) return 0;
