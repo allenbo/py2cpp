@@ -47,6 +47,10 @@ char* get_cmpop_literal(compop_ty op) {
         case LtE: return "__le__";
         case Gt: return "__gt__";
         case GtE: return "__ge__";
+        case Is: return "==";
+        case IsNot: return "!=";
+        case In: return "__contains__";
+        case NotIn: return "__contains__";
     }
 }
 
@@ -57,6 +61,14 @@ char* get_unaryop_literal(unaryop_ty op) {
         case USub: return "__neg__";
         case Not: return "!";
     }
+}
+
+
+char* new_temp() {
+    static int ind = 0;
+    char* name = (char*) malloc (sizeof(char)*12);
+    sprintf(name, "_t%d", ind++);
+    return name;
 }
 
 static void gen_cpp_for_ast(stmt_seq* ss);
@@ -365,12 +377,39 @@ annotate_for_lambda_expr(expr_ty e){
 }
 static void
 annotate_for_ifexp_expr(expr_ty e){
+    expr_ty test = e->ifexp.test;
+    expr_ty body = e->ifexp.body;
+    expr_ty orelse = e->ifexp.orelse;
+
+    annotate_for_expr(test);
+    annotate_for_expr(body);
+    annotate_for_expr(orelse);
+
+    sprintf(e->ann, "%s ? %s : %s", test->ann, body->ann, orelse->ann);
 }
 static void
 annotate_for_listcomp_expr(expr_ty e){
 }
 static void
 annotate_for_dict_expr(expr_ty e){
+    int i, n = e->dict.n_key;
+    expr_ty* keys = e->dict.keys;
+    expr_ty* values = e->dict.values;
+
+    sprintf(e->ann, "Dict<%s, %s>( %d, ",
+            e->e_type->kbase->name,e->e_type->vbase->name, n);
+    for(i = 0; i < n; i ++ ){
+        annotate_for_expr(values[i]);
+        annotate_for_expr(keys[i]);
+
+        strcat(e->ann, keys[i]->ann);
+        strcat(e->ann, ", ");
+        strcat(e->ann, values[i]->ann);
+        if(i != n -1)
+            strcat(e->ann, ", ");
+    }
+    strcat(e->ann, " )");
+
 }
 static void
 annotate_for_set_expr(expr_ty e){
@@ -400,6 +439,43 @@ annotate_for_yield_expr(expr_ty e){
 }
 static void
 annotate_for_compare_expr(expr_ty e){
+    expr_ty left = e->compare.left;
+    expr_ty* comps = e->compare.comparators;
+    int i, n = e->compare.n_comparator;
+    compop_ty* ops = e->compare.ops;
+
+    char* op;
+    char* prev;
+    char* p;
+    annotate_for_expr(left);
+
+    for(i = 0; i < n; i ++ ) {
+        op = get_cmpop_literal(ops[i]);
+        annotate_for_expr(comps[i]);
+        if(i == 0) {
+            prev = left->ann;
+            p = comps[i]->ann;
+        }else {
+            prev = comps[i-1]->ann;
+            p = comps[i]->ann;
+        }
+        char tmp[128];
+
+        if(ops[i] == In) {
+            sprintf(tmp, "(%s)->%s(%s)", p, op, prev);
+        }else if(ops[i] == NotIn) {
+            sprintf(tmp, "!(%s)->%s(%s)", p, op, prev);
+            sprintf(tmp, "!(%s)->%s(%s)", p, op, prev);
+        }else if(ops[i] == Is || ops[i] == IsNot) {
+            sprintf(tmp, "!(%s)%s(%s)", p, op, prev);
+        }else
+            sprintf(tmp, "(%s)->%s(%s)", prev, op, p);
+        strcat(e->ann, tmp);
+
+        if(i != n-1) {
+            strcat(e->ann, " && ");
+        }
+    }
 }
 static void
 annotate_for_call_expr(expr_ty e){
