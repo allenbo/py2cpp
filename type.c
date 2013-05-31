@@ -268,6 +268,7 @@ assign_type_to_classdef_stmt(stmt_ty s) {
     type_ty tp = (type_ty) malloc (sizeof(struct type));
     tp->kind = CLASS_KIND;
     char* name = s->classdef.name;
+    sprintf(tp->name, "%s*", name);
 
     /* function defined in the class will get
      * some information of the class

@@ -270,6 +270,7 @@ static void annotate_for_yield_expr(expr_ty e){
 static void annotate_for_compare_expr(expr_ty e){
 }
 static void annotate_for_call_expr(expr_ty e){
+
 }
 static void annotate_for_repr_expr(expr_ty e){
 }
@@ -284,6 +285,8 @@ static void annotate_for_str_expr(expr_ty e){
     sprintf(e->ann, "Str(\"%s\")", e->str.s);
 }
 static void annotate_for_attribute_expr(expr_ty e){
+    annotate_for_expr(e->attribute.value);
+    sprintf(e->ann, "%s->%s", e->attribute.value->ann, e->attribute.attr);
 }
 static void annotate_for_subscript_expr(expr_ty e){
 }
@@ -291,17 +294,28 @@ static void annotate_for_name_expr(expr_ty e){
     strcpy(e->ann, e->name.id);
 }
 static void annotate_for_list_expr(expr_ty e){
+    int i, n = e->list.n_elt;
+    expr_ty* elts = e->list.elts;
+
+    sprintf(e->ann, "List<%s>( %d, ", e->e_type->base->name, n);
+    for(i = 0; i < n; i ++ ){
+        annotate_for_expr(elts[i]);
+        strcat(e->ann, elts[i]->ann);
+        if(i != n -1)
+            strcat(e->ann, ", ");
+    }
+    strcat(e->ann, " )");
 }
 static void annotate_for_tuple_expr(expr_ty e){
     int i, n = e->tuple.n_elt;
     expr_ty * elts = e->tuple.elts;
 
-    sprintf(e->ann, "Tuple(%d, ", n);
+    sprintf(e->ann, "Tuple( %d, ", n);
     for(i = 0; i < n; i ++ ) {
         annotate_for_expr(elts[i]);
         strcat(e->ann, elts[i]->ann);
         if(i != n -1)
             strcat(e->ann, ", ");
     }
-    strcat(e->ann, ")");
+    strcat(e->ann, " )");
 }

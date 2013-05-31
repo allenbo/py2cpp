@@ -19,7 +19,7 @@ class _py_lambda;
 
 #define Int new _py_int
 #define Str new _py_str
-#define List new _py_list
+#define List(x) new _py_list<x>
 #define Lambda new _py_lambda
 
 #define DInt(x) dynamic_cast<_py_int*>(x)
