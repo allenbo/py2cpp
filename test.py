@@ -1,4 +1,1 @@
-a = 0
-b = 1
-c = 3
-x = a and b or c
+x = [x*x for x in [1,2, 3]]

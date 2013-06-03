@@ -37,6 +37,7 @@ enum type_kind {
     TUPLE_KIND,
     GENERATOR_KIND,
     FUNCTION_KIND,
+    LAMBDA_KIND,
     CLASS_KIND,
     MODULE_KIND,
     SCOPE_KIND

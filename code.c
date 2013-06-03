@@ -531,7 +531,30 @@ annotate_for_compare_expr(expr_ty e){
 }
 static void
 annotate_for_call_expr(expr_ty e){
+    expr_ty func = e->call.func;
+    Parameter * args = e->call.args;
+    int i, n = e->call.n_arg;
+    expr_ty varg = e->call.varg;
+    expr_ty karg = e->call.karg;
 
+    annotate_for_expr(func);
+    for(i = 0; i < n; i ++ ) {
+        annotate_for_expr(args[i].args);
+    }
+
+    if(func->e_type->kind != FUNCTION_KIND &&
+            func->e_type->kind != LAMBDA_KIND) {
+        sprintf(e->ann, "DLambda(%s)(", func->ann);
+    }else {
+        sprintf(e->ann, "%s(", func->ann);
+    }
+
+    for(i = 0;i < n; i ++ ) {
+        strcat(e->ann, args[i].args->ann);
+        if(i != n-1)
+            strcat(e->ann, ", ");
+    }
+    strcat(e->ann, ")");
 }
 static void
 annotate_for_repr_expr(expr_ty e){
