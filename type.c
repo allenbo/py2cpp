@@ -140,7 +140,7 @@ create_dict_type(int n, type_ty kbase, type_ty vbase) {
 type_ty
 create_func_type(stmt_ty s) {
     type_ty tp = (type_ty) malloc (sizeof(struct type));
-    strcpy(tp->name, "PLAMBDA");
+    strcpy(tp->name, "PFUNC");
     tp->kind = FUNCTION_KIND;
     tp->def = s;
     return tp;
@@ -823,18 +823,18 @@ assign_type_to_call_expr(expr_ty e){
 
         int n = args->n_param;
         for(i = 0; i < n; i ++) {
-            assemble_installation(args->params[i]->args, SE_VARIABLE_KIND);
+            assemble_installation(args->params[i]->args, SE_PARAMETER_KIND);
         }
 
         n = args->n_default;
         for(i = 0; i < n; i ++ ) {
-            assemble_installation(args->default_params[i]->args, SE_VARIABLE_KIND);
+            assemble_installation(args->default_params[i]->args, SE_PARAMETER_KIND);
         }
         if(NULL != args->vargs) {
-            assemble_installation(args->vargs, SE_VARIABLE_KIND);
+            assemble_installation(args->vargs, SE_PARAMETER_KIND);
         }
         if(NULL != args->kargs) {
-            assemble_installation(args->kargs, SE_VARIABLE_KIND);
+            assemble_installation(args->kargs, SE_PARAMETER_KIND);
         }
 
 

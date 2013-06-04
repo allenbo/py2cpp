@@ -8,6 +8,7 @@ enum symtab_entry_kind {
     SE_UNKNOWN_KIND,
     SE_FUNCTION_KIND,
     SE_VARIABLE_KIND,
+    SE_PARAMETER_KIND,
     SE_GLOBAL_KIND,
     SE_DEFAULT_KIND,
     SE_CLASS_KIND,
@@ -132,7 +133,6 @@ void functable_insert_ret(char* name, type_ty ret,  type_ty tp);
 type_ty functable_lookup(char* name, type_ty tp);
 
 type_ty assign_type_to_ast(stmt_seq* ss);
-
 
 void output_symtab(FILE* fout, symtab_ty tp);
 

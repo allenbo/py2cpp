@@ -77,7 +77,6 @@ char* new_temp() {
     return name;
 }
 
-static void gen_cpp_for_ast(stmt_seq* ss);
 
 static void gen_cpp_for_stmt(stmt_ty s);
 static void gen_cpp_for_funcdef_stmt(stmt_ty s);
@@ -139,16 +138,16 @@ generate_cpp_code(char* filename, stmt_seq* ss) {
         fprintf(stderr, "Can't open file -- %s\n", filename);
     }
 
-    gen_cpp_for_ast(ss);
+    gen_cpp_for_ast(ss, get_current_symtab());
 
     fclose(fout);
 }
 
 
-static void
-gen_cpp_for_ast(stmt_seq* ss) {
+void
+gen_cpp_for_ast(stmt_seq* ss, symtab_ty s) {
     /* first we need to output the variables */
-    output_symtab(fout, get_current_symtab());
+    output_symtab(fout, s);
 
     int i, n = ss->size;
     for(i = 0; i < n; i ++ ) {
@@ -258,6 +257,12 @@ gen_cpp_for_classdef_stmt(stmt_ty s){
 
 static void
 gen_cpp_for_return_stmt(stmt_ty s){
+    expr_ty value = s->ret.value;
+    annotate_for_expr(value);
+
+    char buf[512] = "";
+    sprintf(buf, "return %s;\n", value->ann);
+    fprintf(fout, "%s", buf);
 }
 
 static void
