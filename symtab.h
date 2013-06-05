@@ -122,6 +122,7 @@ type_ty lookup_variable(char* name);
 type_ty lookup_scope_variable(char* name);
 void change_type(char* name, type_ty tp);
 
+
 void change_symtab(symtab_ty st);
 void change_symtab_back();
 

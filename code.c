@@ -5,7 +5,7 @@
 #include "code.h"
 #include "symtab.h"
 #include "context.h"
-
+#include "util.h"
 FILE* fout = NULL;
 
 char* get_binop_literal(operator_ty op) {
@@ -446,6 +446,52 @@ annotate_for_ifexp_expr(expr_ty e){
 }
 static void
 annotate_for_listcomp_expr(expr_ty e){
+    char scope_name[128] = "";
+    sprintf(scope_name, "comp_%p", e);
+    char* ann = search_hashtable((get_context())->ht,  scope_name);
+    strcpy(e->ann, ann);
+
+    type_ty tp = lookup_variable(scope_name);
+
+    char line[512] = "";
+    sprintf(line, "{\n");
+    fprintf(fout, "%s", line);
+
+
+    output_symtab(fout, tp->scope);
+
+    expr_ty elt = e->listcomp.elt;
+    int i, n = e->listcomp.n_com;
+    comprehension_ty* coms = e->listcomp.generators;
+
+    annotate_for_expr(elt);
+
+    for(i = 0; i < n; i ++ ) {
+        comprehension_ty com = coms[i];
+        expr_ty target = com->target;
+        expr_ty iter = com->iter;
+        int j, m = com->n_test;
+        expr_ty* tests = com->tests;
+
+        annotate_for_expr(target);
+        annotate_for_expr(iter);
+        for(j = 0; j < m; j ++) {
+            annotate_for_expr(tests[j]);
+        }
+
+        sprintf(line, "for(; %s->has_next();) {\n", iter->ann);
+        fprintf(fout, "%s", line);
+
+        sprintf(line, "%s = %s->next();\n",  target->ann, iter->ann);
+        fprintf(fout, "%s", line);
+        sprintf(line, "%s->append(%s);\n", ann, elt->ann);
+        fprintf(fout, "%s", line);
+
+        sprintf(line, "}\n");fprintf(fout, "%s", line);
+        sprintf(line, "}\n");fprintf(fout, "%s", line);
+
+    }
+
 }
 static void
 annotate_for_dict_expr(expr_ty e){

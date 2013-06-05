@@ -6,13 +6,14 @@
 #include "Python-ast.h"
 #include "context.h"
 
-char* newTemp() {
+static char* newTemp() {
     static int i = 0;
     char * tmp = (char* ) malloc( sizeof(char) * 10);
     sprintf(tmp, "_t%d", i++);
     return tmp;
 }
-char* newIterator() {
+
+static char* newIterator() {
     static int i = 0;
     char* tmp = (char*) malloc( sizeof(char) * 4);
     sprintf(tmp, "i%d", i ++ );
@@ -660,6 +661,10 @@ assign_type_to_listcomp_expr(expr_ty e){
     change_symtab_back(); /* change to current table */
 
     e->e_type = create_list_type(0, elt->e_type); /* Cannot figure out the number of elements */
+
+    char* compname = newTemp();
+    insert_hashtable((get_context())->ht, scope_name, compname);
+    install_variable(compname, e->e_type, SE_VARIABLE_KIND);
 }
 
 static void

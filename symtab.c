@@ -228,6 +228,7 @@ change_type(char* name, type_ty tp ){
     }
 }
 
+
 type_ty
 lookup_scope_variable(char* name) {
     symtab_ty st = cur;
@@ -311,7 +312,7 @@ output_symtab(FILE* fout, symtab_ty st) {
     int i, n = st->st_size;
     for(i = 0; i < n; i ++ ){
         symtab_entry_ty se = st->st_symbols[i];
-        if(se->se_kind == SE_PARAMETER_KIND)
+        if(se->se_kind == SE_PARAMETER_KIND || se->se_kind == SE_SCOPE_KIND)
             continue;
         else if(se->se_kind == SE_FUNCTION_KIND) {
             type_ty t = se->se_type;
@@ -343,7 +344,17 @@ output_symtab(FILE* fout, symtab_ty st) {
             }
         }else {
             type_ty tp = se->se_type;
-            sprintf(buf, "%s %s;\n", tp->name, se->se_name);
+            switch(tp->kind) {
+                case LIST_KIND:
+                case SET_KIND:
+                    sprintf(buf, "%s(%s) %s;\n", tp->name, tp->base->name, se->se_name);
+                    break;
+                case DICT_KIND:
+                    sprintf(buf, "%s(%s, %s) %s;\n", tp->name, tp->kbase->name,tp->vbase->name, se->se_name);
+                    break;
+                default:
+                    sprintf(buf, "%s %s;\n", tp->name, se->se_name);
+            }
             fprintf(fout, "%s", buf);
         }
     }
