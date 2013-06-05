@@ -716,6 +716,10 @@ assign_type_to_dictcomp_expr(expr_ty e){
     change_symtab_back();
 
     e->e_type = create_dict_type(0, key->e_type, value->e_type);
+
+    char* compname = newTemp();
+    insert_hashtable((get_context())->ht, scope_name, compname);
+    install_variable(compname, e->e_type, SE_VARIABLE_KIND);
 }
 
 static void
@@ -739,6 +743,10 @@ assign_type_to_setcomp_expr(expr_ty e){
     change_symtab_back(); /* change to current table */
 
     e->e_type = create_set_type(0, elt->e_type); /* Cannot figure out the number of elements */
+
+    char* compname = newTemp();
+    insert_hashtable((get_context())->ht, scope_name, compname);
+    install_variable(compname, e->e_type, SE_VARIABLE_KIND);
 }
 
 static void

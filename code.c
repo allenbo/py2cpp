@@ -508,7 +508,7 @@ annotate_for_listcomp_expr(expr_ty e){
         }
     }
 
-    sprintf(line, "%s->append(%s);\n", ann, elt->ann);
+    sprintf(line, "%s->add(%s);\n", ann, elt->ann);
     fprintf(fout, "%s", line);
     for(i = 0; i < n ;i ++ ) {
         sprintf(line, "}\n");fprintf(fout, "%s", line);
@@ -554,9 +554,80 @@ annotate_for_set_expr(expr_ty e){
 }
 static void
 annotate_for_dictcomp_expr(expr_ty e){
+
 }
 static void
 annotate_for_setcomp_expr(expr_ty e){
+    char scope_name[128] = "";
+    sprintf(scope_name, "comp_%p", e);
+    char* ann = search_hashtable((get_context())->ht,  scope_name);
+    strcpy(e->ann, ann);
+
+    type_ty tp = lookup_variable(scope_name);
+
+    char line[512] = "";
+    sprintf(line, "{\n");
+    fprintf(fout, "%s", line);
+
+
+    output_symtab(fout, tp->scope);
+
+    expr_ty elt = e->setcomp.elt;
+    sprintf(line, "%s = Set<%s>(0);\n", ann, elt->e_type->name);
+    fprintf(fout, "%s", line);
+    int i, n = e->setcomp.n_com;
+    comprehension_ty* coms = e->setcomp.generators;
+
+    annotate_for_expr(elt);
+
+
+    for(i = 0; i < n; i ++ ) {
+        comprehension_ty com = coms[i];
+        expr_ty target = com->target;
+        expr_ty iter = com->iter;
+        int j, m = com->n_test;
+        expr_ty* tests = com->tests;
+
+        annotate_for_expr(target);
+        annotate_for_expr(iter);
+        if(iter->kind != Name_kind) {
+            char* tmp = newTemp();
+            sprintf(line, "%s %s = %s;\n", iter->e_type->name, tmp, iter->ann);
+            fprintf(fout, "%s", line);
+            strcpy(iter->ann, tmp);
+        }
+        for(j = 0; j < m; j ++) {
+            annotate_for_expr(tests[j]);
+        }
+    }
+
+    for(i = 0; i < n; i ++ ) {
+        comprehension_ty com = coms[i];
+        expr_ty target = com->target;
+        expr_ty iter = com->iter;
+        int j, m = com->n_test;
+        expr_ty* tests = com->tests;
+
+        sprintf(line, "for(; %s->has_next();) {\n", iter->ann);
+        fprintf(fout, "%s", line);
+
+        sprintf(line, "%s = %s->next();\n",  target->ann, iter->ann);
+        fprintf(fout, "%s", line);
+
+        for(j = 0; j < m; j++ ) {
+            sprintf(line, "if (%s)\n", tests[j]->ann);
+            fprintf(fout, "%s", line);
+        }
+    }
+
+    sprintf(line, "%s->append(%s);\n", ann, elt->ann);
+    fprintf(fout, "%s", line);
+    for(i = 0; i < n ;i ++ ) {
+        sprintf(line, "}\n");fprintf(fout, "%s", line);
+    }
+
+    sprintf(line, "}\n");fprintf(fout, "%s", line);
+
 }
 static void
 annotate_for_generator_expr(expr_ty e){
