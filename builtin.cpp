@@ -19,7 +19,7 @@ class _py_lambda;
 
 #define Int new _py_int
 #define Str new _py_str
-#define List(x) new _py_list<x>
+#define List new _py_list
 #define Lambda new _py_lambda
 
 #define DInt(x) dynamic_cast<_py_int*>(x)
@@ -173,11 +173,11 @@ class _py_list: public pyobj, public  pyiter{
         _py_str* __repr__() {
             pyobj* ret = new _py_str("[");
             for(int i = 0; i < elements.size(); i ++ ) {
-                ret = ret->add(elements[i]->__repr__());
+                ret = ret->__add__(elements[i]->__repr__());
                 if(i != elements.size() - 1)
-                    ret = ret->add(new _py_str(", "));
+                    ret = ret->__add__(new _py_str(", "));
             }
-            ret = ret->add(new _py_str("]"));
+            ret = ret->__add__(new _py_str("]"));
             return dynamic_cast<_py_str*>(ret);
         }
     private:
@@ -199,11 +199,11 @@ class _py_tuple: public pyobj, public pyiter{
         _py_str* __repr__() {
             pyobj* ret = new _py_str("(");
             for(int i = 0; i < elements.size(); i ++ ) {
-                ret = ret->add(elements[i]->__repr__());
+                ret = ret->__add__(elements[i]->__repr__());
                 if(i != elements.size() - 1)
-                    ret = ret->add(new _py_str(", "));
+                    ret = ret->__add__(new _py_str(", "));
             }
-            ret = ret->add(new _py_str(")"));
+            ret = ret->__add__(new _py_str(")"));
             return dynamic_cast<_py_str*>(ret);
         }
     private:
@@ -255,7 +255,7 @@ void print(pyobj* dest, int nl, int cnt,  ...) {
 }
 
 pyobj* add( pyobj* x, pyobj* y) {
-    return x->add(y);
+    return x->__add__(y);
 }
 
 _py_list<PINT>* range(PINT start, PINT stop = NULL, PINT step = NULL) {
@@ -355,7 +355,23 @@ int main() {
     PLIST y = DList(DEF(x->get(Int(1)), (NULL, Int(6), NULL)));
     print(NULL, 1, 1, y);
     */
-    PLIST(PINT) x = List<PINT>(2, Int(1), Int(2));
-    print(NULL, 1, 1, x);
+PLIST(PINT) _t0;
+PLIST(PINT) x;
+{
+PINT x;
+PINT y;
+_t0 = List<PINT>(0);
+PLIST(PINT) _t1 = List<PINT>( 3, Int(1), Int(2), Int(3) );
+PLIST(PINT) _t2 = List<PINT>( 3, Int(3), Int(4), Int(5) );
+for(; _t1->has_next();) {
+x = _t1->next();
+for(; _t2->has_next();) {
+y = _t2->next();
+_t0->append((x)->__mul__(y));
+}
+}
+}
+x = _t0;
+print(NULL, 1, 1, x);
     return 0;
 }

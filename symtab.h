@@ -137,5 +137,7 @@ type_ty assign_type_to_ast(stmt_seq* ss);
 
 void output_symtab(FILE* fout, symtab_ty tp);
 
+char* newTemp();
+char* newIteration();
 
 #endif

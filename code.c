@@ -461,10 +461,13 @@ annotate_for_listcomp_expr(expr_ty e){
     output_symtab(fout, tp->scope);
 
     expr_ty elt = e->listcomp.elt;
+    sprintf(line, "%s = List<%s>(0);\n", ann, elt->e_type->name);
+    fprintf(fout, "%s", line);
     int i, n = e->listcomp.n_com;
     comprehension_ty* coms = e->listcomp.generators;
 
     annotate_for_expr(elt);
+
 
     for(i = 0; i < n; i ++ ) {
         comprehension_ty com = coms[i];
@@ -475,22 +478,43 @@ annotate_for_listcomp_expr(expr_ty e){
 
         annotate_for_expr(target);
         annotate_for_expr(iter);
+        if(iter->kind != Name_kind) {
+            char* tmp = newTemp();
+            sprintf(line, "%s %s = %s;\n", iter->e_type->name, tmp, iter->ann);
+            fprintf(fout, "%s", line);
+            strcpy(iter->ann, tmp);
+        }
         for(j = 0; j < m; j ++) {
             annotate_for_expr(tests[j]);
         }
+    }
+
+    for(i = 0; i < n; i ++ ) {
+        comprehension_ty com = coms[i];
+        expr_ty target = com->target;
+        expr_ty iter = com->iter;
+        int j, m = com->n_test;
+        expr_ty* tests = com->tests;
 
         sprintf(line, "for(; %s->has_next();) {\n", iter->ann);
         fprintf(fout, "%s", line);
 
         sprintf(line, "%s = %s->next();\n",  target->ann, iter->ann);
         fprintf(fout, "%s", line);
-        sprintf(line, "%s->append(%s);\n", ann, elt->ann);
-        fprintf(fout, "%s", line);
 
-        sprintf(line, "}\n");fprintf(fout, "%s", line);
-        sprintf(line, "}\n");fprintf(fout, "%s", line);
-
+        for(j = 0; j < m; j++ ) {
+            sprintf(line, "if (%s)\n", tests[j]->ann);
+            fprintf(fout, "%s", line);
+        }
     }
+
+    sprintf(line, "%s->append(%s);\n", ann, elt->ann);
+    fprintf(fout, "%s", line);
+    for(i = 0; i < n ;i ++ ) {
+        sprintf(line, "}\n");fprintf(fout, "%s", line);
+    }
+
+    sprintf(line, "}\n");fprintf(fout, "%s", line);
 
 }
 static void

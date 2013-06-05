@@ -344,17 +344,7 @@ output_symtab(FILE* fout, symtab_ty st) {
             }
         }else {
             type_ty tp = se->se_type;
-            switch(tp->kind) {
-                case LIST_KIND:
-                case SET_KIND:
-                    sprintf(buf, "%s(%s) %s;\n", tp->name, tp->base->name, se->se_name);
-                    break;
-                case DICT_KIND:
-                    sprintf(buf, "%s(%s, %s) %s;\n", tp->name, tp->kbase->name,tp->vbase->name, se->se_name);
-                    break;
-                default:
-                    sprintf(buf, "%s %s;\n", tp->name, se->se_name);
-            }
+            sprintf(buf, "%s %s;\n", tp->name, se->se_name);
             fprintf(fout, "%s", buf);
         }
     }
