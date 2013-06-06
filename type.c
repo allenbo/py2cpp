@@ -804,15 +804,19 @@ assign_type_to_call_expr(expr_ty e){
 
     assign_type_to_expr(func);
 
+    int classtype = 0;
+    type_ty tmp;
     if(func->e_type->kind == CLASS_KIND) {
-        type_ty tmp = func->e_type;
+         tmp = func->e_type;
 
+        classtype = 1;
         change_symtab(func->e_type->scope);
         func->e_type = lookup_scope_variable("__init__");
         change_symtab_back();
 
+        e->e_type = tmp;
         if(func->e_type->def == NULL) {
-            e->e_type = tmp;
+            func->e_type = tmp;
             return;
         }
     }
@@ -856,7 +860,11 @@ assign_type_to_call_expr(expr_ty e){
 
         change_symtab_back();
     }
-    e->e_type = ret;
+    if(classtype == 0) {
+        e->e_type = ret;
+    }else{
+        func->e_type = tmp;
+    }
 }
 
 

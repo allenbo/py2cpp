@@ -123,7 +123,7 @@ static void annotate_for_tuple_expr(expr_ty e);
 
 
 void
-generate_cpp_code(char* filename, stmt_seq* ss) {
+generate_cpp_code( stmt_seq* ss, char* filename) {
     if(ss == NULL || ss->size == 0) {
         fprintf(stderr, "stmt seq is not ready\n");
         return ;
@@ -249,10 +249,54 @@ static void annotate_for_expr(expr_ty e){
 
 static void
 gen_cpp_for_funcdef_stmt(stmt_ty s){
+    char buf[512] = "";
+    type_ty t = lookup_variable(s->funcdef.name);
+    stmt_ty def = t->def;
+    int i, n = t->ind;
+    for(i = 0; i < n; i ++ ) {
+        sprintf(buf, "%s %s(", t->tab[i]->ret->name, def->funcdef.name);
+        fprintf(fout, "%s", buf);
+        int j, m = t->tab[i]->n_param;
+        arguments_ty args = def->funcdef.args;
+        for(j = 0; j < m; j++ ){
+            args->params[j]->args->e_type = t->tab[i]->params[j];
+            sprintf(buf, "%s %s", args->params[j]->args->e_type->name,
+                    args->params[j]->args->name.id);
+            fprintf(fout, "%s", buf);
+            if(j != m-1) {
+                sprintf(buf, ", ");
+                fprintf(fout, "%s", buf);
+            }
+        }
+        sprintf(buf, ") {\n");
+        fprintf(fout, "%s", buf);
+        symtab_ty st = t->tab[i]->scope;
+        change_symtab(st);
+        assign_type_to_ast(def->funcdef.body);
+        gen_cpp_for_ast(def->funcdef.body, st);
+        fprintf(fout, "}\n");
+        change_symtab_back();
+    }
 }
 
 static void
 gen_cpp_for_classdef_stmt(stmt_ty s){
+    char buf[512] = "";
+    char* name = s->classdef.name;
+    expr_ty super = s->classdef.super;
+    
+    stmt_seq* body = s->classdef.body;
+    
+    type_ty tp = lookup_variable(name);
+    sprintf(buf, "class %s {\n", name);
+    fprintf(fout, "%s", buf);
+
+    sprintf(buf, "public:\n");
+    fprintf(fout, "%s", buf);
+
+    gen_cpp_for_ast(body, tp->scope);
+    sprintf(buf, "};\n");
+    fprintf(fout, "%s", buf);
 }
 
 static void
@@ -267,6 +311,21 @@ gen_cpp_for_return_stmt(stmt_ty s){
 
 static void
 gen_cpp_for_delete_stmt(stmt_ty s){
+    int i, n = s->del.n_target;
+    expr_ty* targets = s->del.targets;
+
+    char buf[512];
+    for(i = 0; i < n; i ++ ) {
+        annotate_for_expr(targets[i]);
+        if(targets[i]->kind == Subscript_kind) {
+            sprintf(buf, "%s->__delitem__(%s);\n", targets[i]->sub.value->ann, targets[i]->sub.slices[0]->index.value->ann);
+        }else if(targets[i]->kind == Attribute_kind) {
+            sprintf(buf, "%s->__delattr__(%s);\n", targets[i]->attribute.value->ann, targets[i]->attribute.attr);
+        }else {
+            sprintf(buf, "%s->__del__();\n", targets[i]->ann);
+        }
+        fprintf(fout, "%s", buf);
+    }
 }
 
 static void
@@ -688,7 +747,9 @@ annotate_for_call_expr(expr_ty e){
         annotate_for_expr(args[i].args);
     }
 
-    if(func->e_type->kind != FUNCTION_KIND &&
+    if(func->e_type->kind ==  CLASS_KIND) {
+        sprintf(e->ann, "new %s(", func->ann);
+    }else if (func->e_type->kind != FUNCTION_KIND &&
             func->e_type->kind != LAMBDA_KIND) {
         sprintf(e->ann, "DLambda(%s)(", func->ann);
     }else {

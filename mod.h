@@ -79,7 +79,6 @@ typedef struct FuncDef {
 
 typedef struct ClassDef {
     char name[NAME_MAX_SIZE];
-    int base; /* Only support a single base class */
     expr_ty super;
     stmt_seq * body;
 }ClassDef;

@@ -1095,6 +1095,7 @@ ast_for_del_stmt(const node* n) {
     if(e->kind != Tuple_kind) {
         targets = (expr_ty*) malloc ( sizeof( expr_ty) );
         targets[0] = e; 
+        n_target = 1;
     }
     else {
         targets = e->tuple.elts;

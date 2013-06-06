@@ -21,9 +21,10 @@ int main() {
     perrdetail err_ret;
     int flag = 0;
     node *n = PyParser_ParseFileFlagsEx(fp, filename, &_PyParser_Grammar, Py_file_input, NULL, NULL, &err_ret, &flag);
+    fclose(fp);
     stmt_seq* ss = ast_from_node(n);
     assign_type_to_ast(ss);
-    generate_cpp_code(NULL, ss);
+    generate_cpp_code(ss, NULL);
     /*
     printf("#include <iostream>\n"
             "#include <vector>\n"
@@ -54,6 +55,5 @@ int main() {
     printf("\treturn 0;\n}");
     */
     //PyNode_Free(n);
-    fclose(fp);
     return 0;
 }

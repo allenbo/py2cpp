@@ -312,7 +312,8 @@ output_symtab(FILE* fout, symtab_ty st) {
     int i, n = st->st_size;
     for(i = 0; i < n; i ++ ){
         symtab_entry_ty se = st->st_symbols[i];
-        if(se->se_kind == SE_PARAMETER_KIND || se->se_kind == SE_SCOPE_KIND)
+        if(se->se_kind == SE_PARAMETER_KIND || se->se_kind == SE_SCOPE_KIND ||
+                se->se_kind == SE_CLASS_KIND)
             continue;
         else if(se->se_kind == SE_FUNCTION_KIND) {
             type_ty t = se->se_type;
@@ -333,14 +334,8 @@ output_symtab(FILE* fout, symtab_ty st) {
                         fprintf(fout, "%s", buf);
                     }
                 }
-                sprintf(buf, ") {\n");
+                sprintf(buf, ");\n");
                 fprintf(fout, "%s", buf);
-                symtab_ty st = t->tab[i]->scope;
-                change_symtab(st);
-                assign_type_to_ast(def->funcdef.body);
-                gen_cpp_for_ast(def->funcdef.body, st);
-                fprintf(fout, "}\n");
-                change_symtab_back();
             }
         }else {
             type_ty tp = se->se_type;

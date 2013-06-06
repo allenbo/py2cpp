@@ -1,2 +1,11 @@
-x = {x*2 for x in [1, 2, 3, 4, 5, 6] if x in [1, 2, 3]}
-print x
+class New:
+    def __init__(self, x):
+        self.x = x
+    def add(self, a):
+        self.x += a
+    def printout(self):
+        print self.x
+
+n = New(1);
+n.add(2)
+n.printout()
