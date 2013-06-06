@@ -253,15 +253,19 @@ gen_cpp_for_funcdef_stmt(stmt_ty s){
     type_ty t = lookup_variable(s->funcdef.name);
     stmt_ty def = t->def;
     int i, n = t->ind;
+    int from = 0;
+    if((get_context())->inclass == 1) {
+        from = 1;
+    }
     for(i = 0; i < n; i ++ ) {
         sprintf(buf, "%s %s(", t->tab[i]->ret->name, def->funcdef.name);
         fprintf(fout, "%s", buf);
         int j, m = t->tab[i]->n_param;
         arguments_ty args = def->funcdef.args;
         for(j = 0; j < m; j++ ){
-            args->params[j]->args->e_type = t->tab[i]->params[j];
-            sprintf(buf, "%s %s", args->params[j]->args->e_type->name,
-                    args->params[j]->args->name.id);
+            args->params[j + from]->args->e_type = t->tab[i]->params[j];
+            sprintf(buf, "%s %s", args->params[j + from]->args->e_type->name,
+                    args->params[j + from]->args->name.id);
             fprintf(fout, "%s", buf);
             if(j != m-1) {
                 sprintf(buf, ", ");
@@ -284,9 +288,9 @@ gen_cpp_for_classdef_stmt(stmt_ty s){
     char buf[512] = "";
     char* name = s->classdef.name;
     expr_ty super = s->classdef.super;
-    
+
     stmt_seq* body = s->classdef.body;
-    
+
     type_ty tp = lookup_variable(name);
     sprintf(buf, "class %s {\n", name);
     fprintf(fout, "%s", buf);
@@ -294,9 +298,13 @@ gen_cpp_for_classdef_stmt(stmt_ty s){
     sprintf(buf, "public:\n");
     fprintf(fout, "%s", buf);
 
+    change_symtab(tp->scope);
+    (get_context())->inclass = 1;
     gen_cpp_for_ast(body, tp->scope);
     sprintf(buf, "};\n");
     fprintf(fout, "%s", buf);
+    (get_context())->inclass = 0;
+    change_symtab_back();
 }
 
 static void
