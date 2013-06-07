@@ -9,6 +9,8 @@ typedef struct {
     char* classname;
     type_ty ctype;
 
+    int inmember;
+    char* selfname;
     int indent;
 
     int setitem;

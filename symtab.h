@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 #include "mod.h"
-
+#include "context.h"
 enum symtab_entry_kind {
     SE_UNKNOWN_KIND,
     SE_FUNCTION_KIND,

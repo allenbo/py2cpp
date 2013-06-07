@@ -147,7 +147,8 @@ generate_cpp_code( stmt_seq* ss, char* filename) {
 void
 gen_cpp_for_ast(stmt_seq* ss, symtab_ty s) {
     /* first we need to output the variables */
-    output_symtab(fout, s);
+    if(NULL != s)
+        output_symtab(fout, s);
 
     int i, n = ss->size;
     for(i = 0; i < n; i ++ ) {
@@ -256,12 +257,16 @@ gen_cpp_for_funcdef_stmt(stmt_ty s){
     int from = 0;
     if((get_context())->inclass == 1) {
         from = 1;
+        (get_context())->inmember = 1;
     }
     for(i = 0; i < n; i ++ ) {
         sprintf(buf, "%s %s(", t->tab[i]->ret->name, def->funcdef.name);
         fprintf(fout, "%s", buf);
         int j, m = t->tab[i]->n_param;
         arguments_ty args = def->funcdef.args;
+        if(from == 1) {
+            (get_context())->selfname = args->params[0]->args->name.id;
+        }
         for(j = 0; j < m; j++ ){
             args->params[j + from]->args->e_type = t->tab[i]->params[j];
             sprintf(buf, "%s %s", args->params[j + from]->args->e_type->name,
@@ -280,6 +285,7 @@ gen_cpp_for_funcdef_stmt(stmt_ty s){
         gen_cpp_for_ast(def->funcdef.body, st);
         fprintf(fout, "}\n");
         change_symtab_back();
+        (get_context())->inmember = 0;
     }
 }
 
@@ -353,14 +359,14 @@ gen_cpp_for_assign_stmt(stmt_ty s){
         switch(targets[i]->kind) {
             case Tuple_kind:
                 break;
-            case Name_kind:
-                sprintf(buf, "%s = %s;\n", targets[i]->ann, value->ann);
-                fprintf(fout, "%s", buf);
-                break;
             case Subscript_kind:
                  sprintf(buf, "%s;\n", targets[i]->ann);
                  fprintf(fout, "%s", buf);
                 break;
+            default:
+                sprintf(buf, "%s = %s;\n", targets[i]->ann, value->ann);
+                fprintf(fout, "%s", buf);
+
         }
     }
     return;
@@ -417,6 +423,27 @@ gen_cpp_for_while_stmt(stmt_ty s){
 
 static void
 gen_cpp_for_if_stmt(stmt_ty s){
+    expr_ty test = s->ifstmt.test;
+    stmt_seq* body = s->ifstmt.body;
+    stmt_seq* orelse = s->ifstmt.orelse;
+
+    annotate_for_expr(test);
+    char buf[512] = "";
+    sprintf(buf, "if(%s) {\n", test->ann);
+    fprintf(fout, "%s", buf);
+
+    gen_cpp_for_ast(body, NULL);
+    sprintf(buf, "}\n");
+    fprintf(fout, "%s", buf);
+
+    if(orelse != NULL) {
+        sprintf(buf, "else {\n");
+        fprintf(fout, "%s", buf);
+
+        gen_cpp_for_ast(orelse, NULL);
+        sprintf(buf, "}\n");
+        fprintf(fout, "%s", buf);
+    }
 }
 
 static void
@@ -437,6 +464,7 @@ gen_cpp_for_assert_stmt(stmt_ty s){
 
 static void
 gen_cpp_for_global_stmt(stmt_ty s){
+
 }
 
 static void
@@ -862,7 +890,12 @@ annotate_for_subscript_expr(expr_ty e){
 }
 static void
 annotate_for_name_expr(expr_ty e){
-    strcpy(e->ann, e->name.id);
+    if((get_context())->inmember == 1 && strcmp(e->name.id, (get_context())->selfname) == 0 ) {
+        strcpy(e->ann, "this");
+    }
+    else {
+        strcpy(e->ann, e->name.id);
+    }
 }
 static void
 annotate_for_list_expr(expr_ty e){

@@ -1,11 +1,9 @@
-class New:
-    def __init__(self, x):
-        self.x = x
-    def add(self, a):
-        self.x += a
-    def printout(self):
-        print self.x
-
-n = New(1);
-n.add(2)
-n.printout()
+a = 1
+b = 2
+c = 3
+if a==1:
+    print a, c
+elif b == 2:
+    print b, c
+else:
+    print c, a

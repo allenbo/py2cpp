@@ -318,26 +318,32 @@ output_symtab(FILE* fout, symtab_ty st) {
         else if(se->se_kind == SE_FUNCTION_KIND) {
             type_ty t = se->se_type;
             stmt_ty def = t->def;
-            int i, n = t->ind;
-            for(i = 0; i < n; i ++ ) {
-                sprintf(buf, "%s %s(", t->tab[i]->ret->name, def->funcdef.name);
-                fprintf(fout, "%s", buf);
-                int j, m = t->tab[i]->n_param;
-                arguments_ty args = def->funcdef.args;
-                for(j = 0; j < m; j++ ){
-                    args->params[j]->args->e_type = t->tab[i]->params[j];
-                    sprintf(buf, "%s %s", args->params[j]->args->e_type->name,
-                            args->params[j]->args->name.id);
+            int i, n = t->ind, from = 0;
+            if((get_context())->inclass != 1) {
+                for(i = 0; i < n; i ++ ) {
+                    sprintf(buf, "%s %s(", t->tab[i]->ret->name, def->funcdef.name);
                     fprintf(fout, "%s", buf);
-                    if(j != m-1) {
-                        sprintf(buf, ", ");
+                    int j, m = t->tab[i]->n_param;
+                    arguments_ty args = def->funcdef.args;
+                    for(j = 0; j < m; j++ ){
+                        args->params[j + from]->args->e_type = t->tab[i]->params[j];
+                        sprintf(buf, "%s %s", args->params[j + from]->args->e_type->name,
+                                args->params[j + from]->args->name.id);
                         fprintf(fout, "%s", buf);
+                        if(j != m-1) {
+                            sprintf(buf, ", ");
+                            fprintf(fout, "%s", buf);
+                        }
                     }
+                    sprintf(buf, ");\n");
+                    fprintf(fout, "%s", buf);
                 }
-                sprintf(buf, ");\n");
-                fprintf(fout, "%s", buf);
             }
         }else {
+            if((get_context())->inclass == 1) {
+                sprintf(buf, "static ");
+                fprintf(fout, "%s", buf);
+            }
             type_ty tp = se->se_type;
             sprintf(buf, "%s %s;\n", tp->name, se->se_name);
             fprintf(fout, "%s", buf);
