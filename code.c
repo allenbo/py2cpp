@@ -415,10 +415,105 @@ gen_cpp_for_print_stmt(stmt_ty s){
 
 static void
 gen_cpp_for_for_stmt(stmt_ty s){
+    expr_ty target = s->forstmt.target;
+    expr_ty iter = s->forstmt.iter;
+    stmt_seq* body = s->forstmt.body;
+    stmt_seq* orelse = s->forstmt.orelse;
+
+
+    annotate_for_expr(target);
+    annotate_for_expr(iter);
+
+    char buf[512] = "";
+
+    char* ef;
+    if(orelse != NULL) {
+        ef = newTemp();
+        sprintf(buf, "int %s = NOTINT;\n", ef);
+        fprintf(fout, "%s", buf);
+    }
+    if(iter->kind != Name_kind) {
+        char* tmp = newTemp();
+        sprintf(buf, "%s %s = %s;\n", iter->e_type->name, tmp, iter->ann);
+        fprintf(fout, "%s", buf);
+        strcpy(iter->ann, tmp);
+    }
+    sprintf(buf, "for(; %s->has_next(); ) {\n", iter->ann);
+    fprintf(fout, "%s", buf);
+
+    if(orelse != NULL) {
+        sprintf(buf, "%s = INT\n", ef);
+        fprintf(fout, "%s", buf);
+    }
+
+    /* just deal with the case when target is not a tuple */
+    sprintf(buf, "%s %s = %s->next();\n",
+            target->e_type->name, target->ann, iter->ann);
+    fprintf(fout, "%s", buf);
+
+    gen_cpp_for_ast(body, NULL);
+
+    if(NULL != orelse ) {
+        sprintf(buf, "%s = NOTINT\n", ef);
+        fprintf(fout, "%s", buf);
+    }
+
+    sprintf(buf, "}\n");
+    fprintf(fout, "%s", buf);
+
+    if(orelse != NULL){
+        sprintf(buf, "if( %s == NOTINT) {\n", ef);
+        fprintf(fout, "%s", buf);
+
+        gen_cpp_for_ast(orelse, NULL);
+
+        sprintf(buf, "}\n");
+        fprintf(fout, "%s", buf);
+    }
 }
 
 static void
 gen_cpp_for_while_stmt(stmt_ty s){
+    expr_ty test = s->whilestmt.test;
+    stmt_seq* body = s->whilestmt.body;
+    stmt_seq* orelse = s->whilestmt.orelse;
+
+    annotate_for_expr(test);
+
+    char* ef;
+    char buf[512] = "";
+    if(orelse != NULL) {
+        ef = newTemp();
+        sprintf(buf, "int %s = NOTINT;\n", ef);
+        fprintf(fout, "%s", buf);
+    }
+
+    sprintf(buf, "while( %s ) {\n", test->ann);
+    fprintf(fout, "%s", buf);
+
+    if(orelse != NULL) {
+        sprintf(buf, "%s = INT\n", ef);
+        fprintf(fout, "%s", buf);
+    }
+    gen_cpp_for_ast(body, NULL);
+
+    if(NULL != orelse ) {
+        sprintf(buf, "%s = NOTINT\n", ef);
+        fprintf(fout, "%s", buf);
+    }
+
+    sprintf(buf, "}\n");
+    fprintf(fout, "%s", buf);
+
+    if(orelse != NULL){
+        sprintf(buf, "if( %s == NOTINT) {\n", ef);
+        fprintf(fout, "%s", buf);
+
+        gen_cpp_for_ast(orelse, NULL);
+
+        sprintf(buf, "}\n");
+        fprintf(fout, "%s", buf);
+    }
 }
 
 static void
