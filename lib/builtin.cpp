@@ -272,7 +272,11 @@ _py_list<PINT>* range(PINT start, PINT stop = NULL, PINT step = NULL) {
     return l;
 }
 
-
+void test(PINT a, PINT b) {
+  print(NULL, 1, 4, Str("inside function test, x ="), a, Str("y ="), b);
+}
+PINT x = Int(3);
+PINT y = Int(2);
 int main() {
     /*
     _py_list * x = new _py_list(1, new _py_int(1));
@@ -355,23 +359,7 @@ int main() {
     PLIST y = DList(DEF(x->get(Int(1)), (NULL, Int(6), NULL)));
     print(NULL, 1, 1, y);
     */
-PLIST(PINT) _t0;
-PLIST(PINT) x;
-{
-PINT x;
-PINT y;
-_t0 = List<PINT>(0);
-PLIST(PINT) _t1 = List<PINT>( 3, Int(1), Int(2), Int(3) );
-PLIST(PINT) _t2 = List<PINT>( 3, Int(3), Int(4), Int(5) );
-for(; _t1->has_next();) {
-x = _t1->next();
-for(; _t2->has_next();) {
-y = _t2->next();
-_t0->append((x)->__mul__(y));
-}
-}
-}
-x = _t0;
-print(NULL, 1, 1, x);
+print(NULL, 1, 4, Str("outside function test x ="), x, Str("y ="), y);
+test(Int(10), Int(12));
     return 0;
 }
