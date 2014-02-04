@@ -123,7 +123,7 @@ static void annotate_for_tuple_expr(expr_ty e);
 
 
 void
-generate_cpp_code( stmt_seq* ss, char* filename) {
+generate_cpp_code( char* filename, stmt_seq* ss) {
     if(ss == NULL || ss->size == 0) {
         fprintf(stderr, "stmt seq is not ready\n");
         return ;

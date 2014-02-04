@@ -1,6 +1,5 @@
 *.o
 Include
-*.py
 !test.py
 *.pyc
 *.asdl
