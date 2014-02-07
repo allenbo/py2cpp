@@ -3,6 +3,8 @@
 
 #define NAME_MAX_SIZE 128
 
+#include "operator.h"
+
 typedef struct type* type_ty;
 
 typedef struct _stmt * stmt_ty;
@@ -21,20 +23,10 @@ typedef struct exception_handler * exception_handler_ty;
 
 typedef struct slice * slice_ty;
 
-typedef enum _boolop { And = 1, Or = 2 } boolop_ty;
+typedef struct comprehension * comprehension_ty;
 
 typedef enum _expr_context { Load = 1, Store = 2, Del = 3, AugLoad = 4, AugStore = 5,
     Param = 6} expr_context_ty;
-
-typedef enum _operator { Add = 1, Sub = 2, Mult = 3, Div = 4, Mod = 5, Pow = 6, LShift =7,
-    RShift =8, BitOr = 9, BitXor = 10, BitAnd= 11, FloorDiv = 12} operator_ty;
-
-typedef enum _unaryop { Invert = 1, Not = 2, UAdd = 3, USub = 4 } unaryop_ty;
-
-typedef enum _compop { Eq = 1, NotEq = 2 ,Lt = 3, LtE = 4, Gt = 5, GtE = 6, Is = 7, IsNot = 8,
-    In = 9, NotIn = 10 } compop_ty;
-
-typedef struct comprehension * comprehension_ty;
 
 enum stmt_kind { FuncDef_kind = 1, ClassDef_kind = 2, Return_kind = 3, Delete_kind = 4,
                 Assign_kind = 5, AugAssign_kind = 6, Print_kind = 7, For_kind = 8, While_kind = 9,
@@ -441,5 +433,7 @@ struct exception_handler {
     expr_ty value;
     stmt_seq* body;
 };
+
+int is_precedent(operator_ty first, operator_ty second);
 
 #endif

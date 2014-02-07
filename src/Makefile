@@ -15,7 +15,8 @@ OBJ=main.o \
 		type.o \
 		symtab.o \
 		context.o \
-		exception.o
+		exception.o \
+		operator.o
 
 OBJ += code.o util.o
 
@@ -33,7 +34,8 @@ HEADER=errcode.h \
 		Python-ast.h \
 		symtab.h \
 		context.h \
-		exception.h
+		exception.h \
+		operator.h
 
 HEADER += code.h util.h
 CFLAGS=

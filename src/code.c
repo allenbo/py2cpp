@@ -6,130 +6,10 @@
 #include "symtab.h"
 #include "context.h"
 #include "util.h"
+
+#include "operator.h"
+
 FILE* fout = NULL;
-
-char* get_binop_fake_literal(operator_ty op) {
-    switch(op) {
-        case Add: return "__add__";
-        case Sub: return "__sub__";
-        case Mult: return "__mul__";
-        case Div:  return "__div__";
-        case Mod:  return "__mod__";
-        case Pow: return "__pow__";
-        case LShift: return "__lshift__";
-        case RShift: return "__rshift__";
-        case BitOr:  return "__or__";
-        case BitXor:return "__xor__";
-        case BitAnd:  return "__and__";
-    }
-    return NULL;
-}
-
-
-char* get_binop_true_literal(operator_ty op ) {
-    switch(op) {
-      case Add: return "+";
-      case Sub: return "-";
-      case Mult: return "*";
-      case Div:  return "/";
-      case Mod:  return "%";
-      case LShift: return "<<";
-      case RShift: return ">>";
-      case BitOr:  return "|";
-      case BitXor:return "^";
-      case BitAnd:  return "&";
-  }
-  return NULL;
-}
-
-
-char* get_augop_true_literal(operator_ty op) {
-    switch(op) {
-        case Add: return "+=";
-        case Sub: return "-=";
-        case Mult: return "*=";
-        case Div:  return "/=";
-        case Mod:  return "%=";
-        case LShift: return "<<=";
-        case RShift: return ">>=";
-        case BitOr:  return "|=";
-        case BitXor:return "^=";
-        case BitAnd:  return "&=";
-    }
-    return NULL;
-}
-
-char* get_augop_fake_literal(operator_ty op) {
-    switch(op) {
-        case Add: return "__iadd__";
-        case Sub: return "__isub__";
-        case Mult: return "__imul__";
-        case Div:  return "__idiv__";
-        case Mod:  return "__imod__";
-        case Pow: return "__ipow__";
-        case LShift: return "__ilshift__";
-        case RShift: return "__irshift__";
-        case BitOr:  return "__ior__";
-        case BitXor:return "__ixor__";
-        case BitAnd:  return "__iand__";
-    }
-    return NULL;
-}
-
-char* get_cmpop_true_literal(compop_ty op) {
-    switch(op) {
-        case Eq: return "==";
-        case NotEq: return "!=";
-        case Lt: return "<";
-        case LtE: return "<=";
-        case Gt: return ">";
-        case GtE: return ">=";
-        case Is: return "==";
-        case IsNot: return "!=";
-    }
-    return NULL;
-}
-char* get_cmpop_fake_literal(compop_ty op) {
-    switch(op) {
-        case Eq: return "__eq__";
-        case NotEq: return "__ne__";
-        case Lt: return "__lt__";
-        case LtE: return "__le__";
-        case Gt: return "__gt__";
-        case GtE: return "__ge__";
-        case Is: return "==";
-        case IsNot: return "!=";
-        case In: return "__contains__";
-        case NotIn: return "__contains__";
-    }
-    return NULL;
-}
-
-char* get_unaryop_true_literal(unaryop_ty op) {
-    switch(op) {
-        case Invert: return "~";
-        case UAdd: return "+";
-        case USub: return "-";
-        case Not: return "!";
-    }
-    return NULL;
-}
-
-char* get_unaryop_fake_literal(unaryop_ty op) {
-    switch(op) {
-        case Invert: return "__invert__";
-        case UAdd: return "__pos__";
-        case USub: return "__neg__";
-        case Not: return "!";
-    }
-}
-
-char* get_boolop_literal(boolop_ty op) {
-    switch(op) {
-        case And: return "&&";
-        case Or: return "||";
-    }
-}
 
 
 static void gen_cpp_for_stmt(stmt_ty s);
@@ -637,11 +517,24 @@ annotate_for_binop_expr(expr_ty e){
 
     if (binop_in_exception_list(left, right, op)) {
       literal = get_binop_true_literal(op);
+      if ( left->kind == BinOp_kind && !is_precedent(left->binop.op, op) )  {
+        sprintf(e->ann, "(%s) %s ", left->ann, literal);
+      }
+      else {
+        sprintf(e->ann, "%s %s ", left->ann, literal);
+      }
+
+      if( right->kind == BinOp_kind && !is_precedent(right->binop.op, op)) {
+        sprintf(e->ann + strlen(e->ann), "(%s)", right->ann);
+      }
+      else {
+          sprintf(e->ann + strlen(e->ann), "%s", right->ann);
+      }
     }
     else{
       literal = get_binop_fake_literal(op);
+      sprintf(e->ann, "(%s)->%s(%s)", left->ann, literal, right->ann);
     }
-    sprintf(e->ann, "(%s) %s (%s)", left->ann, literal, right->ann);
 }
 static void
 annotate_for_boolop_expr(expr_ty e){

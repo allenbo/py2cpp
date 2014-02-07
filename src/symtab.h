@@ -104,6 +104,7 @@ struct  type {
 };
 
 
+
 struct funcentry {
     char index[128]; /* the short of parameters */
     int n_param;  /* number of parameters */
