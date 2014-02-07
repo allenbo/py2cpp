@@ -6,26 +6,13 @@
 #include "Python-ast.h"
 #include "context.h"
 
-char* newTemp() {
-    static int i = 0;
-    char * tmp = (char* ) malloc( sizeof(char) * 10);
-    sprintf(tmp, "_t%d", i++);
-    return tmp;
-}
 
-char* newIterator() {
-    static int i = 0;
-    char* tmp = (char*) malloc( sizeof(char) * 4);
-    sprintf(tmp, "i%d", i ++ );
-    return tmp;
-}
-
-struct type t_unknown  = {UNKNOWN_KIND,  "VOID"};
-struct type t_char = {CHAR_KIND, "CHAR"};
-struct type t_boolean = {BOOLEAN_KIND, "BOOL"};
-struct type t_integer = {INTEGER_KIND, "PINT"};
-struct type t_float = {FLOAT_KIND, "PFLOAT"};
-struct type t_string = {STRING_KIND,  "PSTR"};
+struct type t_unknown  = {UNKNOWN_KIND,  "void"};
+struct type t_char = {CHAR_KIND, "char"};
+struct type t_boolean = {BOOLEAN_KIND, "bool"};
+struct type t_integer = {INTEGER_KIND, "int"};
+struct type t_float = {FLOAT_KIND, "double"};
+struct type t_string = {STRING_KIND,  "string"};
 
 
 int is_primitive_type(type_ty t) {

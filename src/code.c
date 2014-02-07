@@ -8,7 +8,7 @@
 #include "util.h"
 FILE* fout = NULL;
 
-char* get_binop_literal(operator_ty op) {
+char* get_binop_fake_literal(operator_ty op) {
     switch(op) {
         case Add: return "__add__";
         case Sub: return "__sub__";
@@ -22,8 +22,44 @@ char* get_binop_literal(operator_ty op) {
         case BitXor:return "__xor__";
         case BitAnd:  return "__and__";
     }
+    return NULL;
 }
-char* get_augop_literal(operator_ty op) {
+
+
+char* get_binop_true_literal(operator_ty op ) {
+    switch(op) {
+      case Add: return "+";
+      case Sub: return "-";
+      case Mult: return "*";
+      case Div:  return "/";
+      case Mod:  return "%";
+      case LShift: return "<<";
+      case RShift: return ">>";
+      case BitOr:  return "|";
+      case BitXor:return "^";
+      case BitAnd:  return "&";
+  }
+  return NULL;
+}
+
+
+char* get_augop_true_literal(operator_ty op) {
+    switch(op) {
+        case Add: return "+=";
+        case Sub: return "-=";
+        case Mult: return "*=";
+        case Div:  return "/=";
+        case Mod:  return "%=";
+        case LShift: return "<<=";
+        case RShift: return ">>=";
+        case BitOr:  return "|=";
+        case BitXor:return "^=";
+        case BitAnd:  return "&=";
+    }
+    return NULL;
+}
+
+char* get_augop_fake_literal(operator_ty op) {
     switch(op) {
         case Add: return "__iadd__";
         case Sub: return "__isub__";
@@ -37,9 +73,23 @@ char* get_augop_literal(operator_ty op) {
         case BitXor:return "__ixor__";
         case BitAnd:  return "__iand__";
     }
+    return NULL;
 }
 
-char* get_cmpop_literal(compop_ty op) {
+char* get_cmpop_true_literal(compop_ty op) {
+    switch(op) {
+        case Eq: return "==";
+        case NotEq: return "!=";
+        case Lt: return "<";
+        case LtE: return "<=";
+        case Gt: return ">";
+        case GtE: return ">=";
+        case Is: return "==";
+        case IsNot: return "!=";
+    }
+    return NULL;
+}
+char* get_cmpop_fake_literal(compop_ty op) {
     switch(op) {
         case Eq: return "__eq__";
         case NotEq: return "__ne__";
@@ -52,9 +102,20 @@ char* get_cmpop_literal(compop_ty op) {
         case In: return "__contains__";
         case NotIn: return "__contains__";
     }
+    return NULL;
 }
 
-char* get_unaryop_literal(unaryop_ty op) {
+char* get_unaryop_true_literal(unaryop_ty op) {
+    switch(op) {
+        case Invert: return "~";
+        case UAdd: return "+";
+        case USub: return "-";
+        case Not: return "!";
+    }
+    return NULL;
+}
+
+char* get_unaryop_fake_literal(unaryop_ty op) {
     switch(op) {
         case Invert: return "__invert__";
         case UAdd: return "__pos__";
@@ -68,13 +129,6 @@ char* get_boolop_literal(boolop_ty op) {
         case And: return "&&";
         case Or: return "||";
     }
-}
-
-char* new_temp() {
-    static int ind = 0;
-    char* name = (char*) malloc (sizeof(char)*12);
-    sprintf(name, "_t%d", ind++);
-    return name;
 }
 
 
@@ -380,7 +434,7 @@ gen_cpp_for_augassign_stmt(stmt_ty s){
 
     annotate_for_expr(value);
     annotate_for_expr(target);
-    char* lop = get_augop_literal(op);
+    char* lop = get_augop_fake_literal(op);
 
     char buf[512] = "";
     sprintf(buf, "%s->%s(%s);\n", target->ann, lop, value->ann);
@@ -578,18 +632,20 @@ annotate_for_binop_expr(expr_ty e){
 
     annotate_for_expr(left);
     annotate_for_expr(right);
+    
+    char* literal = NULL;
 
     if (binop_in_exception_list(left, right, op)) {
-      
+      literal = get_binop_true_literal(op);
     }
     else{
-      char* fake = get_binop_literal(op);
-      sprintf(e->ann, "(%s)->%s(%s)", left->ann, fake, right->ann);
+      literal = get_binop_fake_literal(op);
     }
+    sprintf(e->ann, "(%s) %s (%s)", left->ann, literal, right->ann);
 }
 static void
 annotate_for_boolop_expr(expr_ty e){
-    char* tmp = new_temp();
+    char* tmp = newTemp();
     strcpy(e->ann, tmp);
 
     expr_ty* values = e->boolop.values;
@@ -616,7 +672,7 @@ annotate_for_unaryop_expr(expr_ty e){
     expr_ty operand = e->unaryop.operand;
     unaryop_ty op = e->unaryop.op;
 
-    char* fake = get_unaryop_literal(op);
+    char* fake = get_unaryop_true_literal(op);
     annotate_for_expr(operand);
     if(fake[0] == '!') {
         sprintf(e->ann, "!%s", operand->ann);
@@ -843,7 +899,7 @@ annotate_for_compare_expr(expr_ty e){
     annotate_for_expr(left);
 
     for(i = 0; i < n; i ++ ) {
-        op = get_cmpop_literal(ops[i]);
+        op = get_cmpop_fake_literal(ops[i]);
         annotate_for_expr(comps[i]);
         if(i == 0) {
             prev = left->ann;
@@ -855,14 +911,14 @@ annotate_for_compare_expr(expr_ty e){
         char tmp[128];
 
         if(ops[i] == In) {
-            sprintf(tmp, "(%s)->%s(%s)", p, op, prev);
+            sprintf(tmp, "(%s) %s (%s)", p, op, prev);
         }else if(ops[i] == NotIn) {
-            sprintf(tmp, "!(%s)->%s(%s)", p, op, prev);
-            sprintf(tmp, "!(%s)->%s(%s)", p, op, prev);
+            sprintf(tmp, "!(%s) %s (%s)", p, op, prev);
+            sprintf(tmp, "!(%s) %s (%s)", p, op, prev);
         }else if(ops[i] == Is || ops[i] == IsNot) {
-            sprintf(tmp, "!(%s)%s(%s)", p, op, prev);
+            sprintf(tmp, "!(%s) %s (%s)", p, op, prev);
         }else
-            sprintf(tmp, "(%s)->%s(%s)", prev, op, p);
+            sprintf(tmp, "(%s) %s (%s)", prev, op, p);
         strcat(e->ann, tmp);
 
         if(i != n-1) {
@@ -905,14 +961,14 @@ annotate_for_repr_expr(expr_ty e){
 static void
 annotate_for_num_expr(expr_ty e){
     if(e->num.kind == INTEGER) {
-        sprintf(e->ann, "Int(%d)", e->num.ivalue);
+        sprintf(e->ann, "%d", e->num.ivalue);
     }else {
-        sprintf(e->ann, "Int(%f)", e->num.fvalue);
+        sprintf(e->ann, "%f", e->num.fvalue);
     }
 }
 static void
 annotate_for_str_expr(expr_ty e){
-    sprintf(e->ann, "Str(\"%s\")", e->str.s);
+    sprintf(e->ann, "\"%s\"", e->str.s);
 }
 static void
 annotate_for_attribute_expr(expr_ty e){

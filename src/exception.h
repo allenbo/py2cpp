@@ -1,4 +1,4 @@
-#include "symtable.h"
+#include "symtab.h"
 
 
 // check if a expression is in exception list

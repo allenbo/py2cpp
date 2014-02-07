@@ -24,4 +24,7 @@ hashtable_ty create_hashtable();
 void insert_hashtable(hashtable_ty ht, char* , char*);
 char* search_hashtable(hashtable_ty ht, char*);
 
+
+char* newTemp();
+
 #endif

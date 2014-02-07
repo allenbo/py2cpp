@@ -14,7 +14,9 @@ OBJ=main.o \
 		Python-ast.o \
 		type.o \
 		symtab.o \
-		context.o
+		context.o \
+		exception.o
+
 OBJ += code.o util.o
 
 BUILD_OBJ=$(addprefix $(BUILD_DIR)/, $(OBJ))
@@ -30,7 +32,8 @@ HEADER=errcode.h \
 		grammar.h \
 		Python-ast.h \
 		symtab.h \
-		context.h
+		context.h \
+		exception.h
 
 HEADER += code.h util.h
 CFLAGS=

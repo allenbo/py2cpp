@@ -51,6 +51,16 @@ search_hashtable(hashtable_ty ht, char* key) {
     }
     return NULL;
 }
+
+
+char* newTemp() {
+    static int i = 0;
+    char * tmp = (char* ) malloc( sizeof(char) * 10);
+    sprintf(tmp, "_t%d", i++);
+    return tmp;
+}
+
+
 /*
 int main() {
     hashtable_ty ht = create_hashtable();
