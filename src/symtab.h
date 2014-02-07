@@ -140,4 +140,6 @@ void output_symtab(FILE* fout, symtab_ty tp);
 char* newTemp();
 char* newIteration();
 
+
+int is_primitive_type(type_ty t);
 #endif

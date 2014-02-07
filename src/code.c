@@ -579,8 +579,13 @@ annotate_for_binop_expr(expr_ty e){
     annotate_for_expr(left);
     annotate_for_expr(right);
 
-    char* fake = get_binop_literal(op);
-    sprintf(e->ann, "(%s)->%s(%s)", left->ann, fake, right->ann);
+    if (binop_in_exception_list(left, right, op)) {
+      
+    }
+    else{
+      char* fake = get_binop_literal(op);
+      sprintf(e->ann, "(%s)->%s(%s)", left->ann, fake, right->ann);
+    }
 }
 static void
 annotate_for_boolop_expr(expr_ty e){
