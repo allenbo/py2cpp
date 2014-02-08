@@ -536,7 +536,7 @@ annotate_for_binop_expr(expr_ty e){
     }
 
     else if ( is_primary_type(left->e_type ) && is_primary_type(right->e_type)){
-            
+      sprintf(e->ann, primary_type_with_lib(left, op, right));
     }
     else{
       literal = get_binop_fake_literal(op);

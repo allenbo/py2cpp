@@ -4,29 +4,8 @@
 #define NAME_MAX_SIZE 128
 
 #include "operator.h"
+#include "struct_common.h"
 
-typedef struct type* type_ty;
-
-typedef struct _stmt * stmt_ty;
-
-typedef struct _expr* expr_ty;
-
-typedef struct Variable Variable;
-
-typedef Variable Parameter;
-
-typedef struct stmt_seq stmt_seq;
-
-typedef struct arguments * arguments_ty;
-
-typedef struct exception_handler * exception_handler_ty;
-
-typedef struct slice * slice_ty;
-
-typedef struct comprehension * comprehension_ty;
-
-typedef enum _expr_context { Load = 1, Store = 2, Del = 3, AugLoad = 4, AugStore = 5,
-    Param = 6} expr_context_ty;
 
 enum stmt_kind { FuncDef_kind = 1, ClassDef_kind = 2, Return_kind = 3, Delete_kind = 4,
                 Assign_kind = 5, AugAssign_kind = 6, Print_kind = 7, For_kind = 8, While_kind = 9,
