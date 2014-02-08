@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include "mod.h"
 #include "context.h"
+
+
+
 enum symtab_entry_kind {
     SE_UNKNOWN_KIND,
     SE_FUNCTION_KIND,
@@ -25,24 +28,6 @@ enum symtab_kind {
     SK_CLASS_KIND
 };
 
-enum type_kind {
-    UNKNOWN_KIND,
-    BOOLEAN_KIND,
-    CHAR_KIND,
-    INTEGER_KIND,
-    FLOAT_KIND,
-    STRING_KIND,
-    LIST_KIND,
-    SET_KIND,
-    DICT_KIND,
-    TUPLE_KIND,
-    GENERATOR_KIND,
-    FUNCTION_KIND,
-    LAMBDA_KIND,
-    CLASS_KIND,
-    MODULE_KIND,
-    SCOPE_KIND
-};
 
 
 typedef struct symtab_entry * symtab_entry_ty;
@@ -74,44 +59,8 @@ struct symtab {
     symtab_ty * st_children;
 };
 
+#include "type_common.h"
 
-
-
-
-struct  type {
-    enum type_kind kind;
-    char name[128];
-
-    /* This is for list */
-    type_ty base;
-
-    /* This is for tuple */
-    int n_elt;
-    type_ty * elts;
-
-
-    type_ty kbase;
-    type_ty vbase;
-
-    /* for class and module */
-    symtab_ty scope;
-
-    /* for function */
-    stmt_ty def;  /* corresponding statement*/
-    int ind;
-    funcentry_ty tab[128];
-    type_ty ctype;  /* the type of the class */
-};
-
-
-
-struct funcentry {
-    char index[128]; /* the short of parameters */
-    int n_param;  /* number of parameters */
-    type_ty * params;
-    type_ty ret;
-    symtab_ty scope;
-};
 
 symtab_ty get_current_symtab();
 symtab_ty get_global_symtab();
@@ -142,5 +91,4 @@ char* newTemp();
 char* newIteration();
 
 
-int is_primitive_type(type_ty t);
 #endif

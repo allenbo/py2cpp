@@ -142,5 +142,5 @@ char* get_boolop_literal(boolop_ty op) {
 }
 
 int is_precedent(operator_ty f, operator_ty s) {
-  return ! precedence[f] < precedence[s];  
+  return ! (precedence[f] < precedence[s]);
 }

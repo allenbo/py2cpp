@@ -5,6 +5,8 @@
 #include <assert.h>
 #include "Python-ast.h"
 #include "context.h"
+#include "primary.h"
+#include "type_common.h"
 
 
 struct type t_unknown  = {UNKNOWN_KIND,  "void"};

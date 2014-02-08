@@ -16,7 +16,8 @@ OBJ=main.o \
 		symtab.o \
 		context.o \
 		exception.o \
-		operator.o
+		operator.o \
+		primary.o
 
 OBJ += code.o util.o
 
@@ -35,7 +36,8 @@ HEADER=errcode.h \
 		symtab.h \
 		context.h \
 		exception.h \
-		operator.h
+		operator.h \
+		primary.h
 
 HEADER += code.h util.h
 CFLAGS=

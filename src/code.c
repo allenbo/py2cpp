@@ -8,6 +8,7 @@
 #include "util.h"
 
 #include "operator.h"
+#include "primary.h"
 
 FILE* fout = NULL;
 
@@ -515,6 +516,8 @@ annotate_for_binop_expr(expr_ty e){
     
     char* literal = NULL;
 
+    // binary operation can convert to c++ language directly
+    // it's exceptional
     if (binop_in_exception_list(left, right, op)) {
       literal = get_binop_true_literal(op);
       if ( left->kind == BinOp_kind && !is_precedent(left->binop.op, op) )  {
@@ -528,8 +531,12 @@ annotate_for_binop_expr(expr_ty e){
         sprintf(e->ann + strlen(e->ann), "(%s)", right->ann);
       }
       else {
-          sprintf(e->ann + strlen(e->ann), "%s", right->ann);
+        sprintf(e->ann + strlen(e->ann), "%s", right->ann);
       }
+    }
+
+    else if ( is_primary_type(left->e_type ) && is_primary_type(right->e_type)){
+            
     }
     else{
       literal = get_binop_fake_literal(op);
