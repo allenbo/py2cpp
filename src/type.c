@@ -17,11 +17,6 @@ struct type t_float = {FLOAT_KIND, "double"};
 struct type t_string = {STRING_KIND,  "string"};
 
 
-int is_primitive_type(type_ty t) {
-  if ( t == &t_char || t == &t_boolean || t == &t_integer || t == &t_float || t == &t_string )
-    return 1;
-  return 0;
-}
 
 static type_ty assign_type_to_stmt(stmt_ty s);
 static void assign_type_to_expr(expr_ty e);

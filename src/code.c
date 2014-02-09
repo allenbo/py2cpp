@@ -12,6 +12,14 @@
 
 FILE* fout = NULL;
 
+extern struct type t_unknown;
+extern struct type t_char;
+extern struct type t_boolean;
+extern struct type t_integer;
+extern struct type t_float;
+extern struct type t_string;
+
+
 
 static void gen_cpp_for_stmt(stmt_ty s);
 static void gen_cpp_for_funcdef_stmt(stmt_ty s);
@@ -36,7 +44,7 @@ static void annotate_for_expr(expr_ty e);
 static void annotate_for_binop_expr(expr_ty e);
 static void annotate_for_boolop_expr(expr_ty e);
 static void annotate_for_unaryop_expr(expr_ty e);
-static void annotate_for_lambda_expr(expr_ty e);
+static void annotate_for_lambda_expr(expr_ty e); // waiting
 static void annotate_for_ifexp_expr(expr_ty e);
 static void annotate_for_listcomp_expr(expr_ty e);
 static void annotate_for_dict_expr(expr_ty e);
@@ -536,7 +544,7 @@ annotate_for_binop_expr(expr_ty e){
     }
 
     else if ( is_primary_type(left->e_type ) && is_primary_type(right->e_type)){
-      sprintf(e->ann, primary_type_with_lib(left, op, right));
+      sprintf(e->ann, "%s", primary_type_with_lib(left, op, right));
     }
     else{
       literal = get_binop_fake_literal(op);
@@ -545,26 +553,41 @@ annotate_for_binop_expr(expr_ty e){
 }
 static void
 annotate_for_boolop_expr(expr_ty e){
-    char* tmp = newTemp();
-    strcpy(e->ann, tmp);
-
     expr_ty* values = e->boolop.values;
     int i, n = e->boolop.n_value;
     boolop_ty op = e->boolop.op;
-
+    
     char buf[512] = "";
-    sprintf(buf, "%s %s;\n", values[0]->e_type->name, tmp);
-    fprintf(fout, "%s", buf);
 
-    buf[0] = '\0';
-    for(i = 0; i < n; i ++ ) {
+    if ( values[0]->e_type == &t_boolean ) {
+      for(i = 0; i < n; i ++ ) {
         annotate_for_expr(values[i]);
-        sprintf(buf + strlen(buf), "(%s = (%s))->__nonzero__()", tmp, values[i]->ann);
-        if(i != n -1) {
-            sprintf(buf + strlen(buf) , " %s ", get_boolop_literal(op));
+        sprintf(buf+strlen(buf), "%s", values[i]->ann);
+
+        if ( i != n - 1 ) {
+          sprintf(buf + strlen(buf),  " %s ", get_boolop_literal(op) );
         }
+      }
+
+      strcpy(e->ann, buf);
     }
-    fprintf(fout, "%s;\n", buf);
+    else {
+      char* tmp = newTemp();
+      strcpy(e->ann, tmp);
+
+      sprintf(buf, "%s %s;\n", values[0]->e_type->name, tmp);
+      fprintf(fout, "%s", buf);
+
+      buf[0] = '\0';
+      for(i = 0; i < n; i ++ ) {
+          annotate_for_expr(values[i]);
+          sprintf(buf + strlen(buf), "(%s = %s) ", tmp, values[i]->ann);
+          if(i != n -1) {
+              sprintf(buf + strlen(buf) , " %s ", get_boolop_literal(op));
+          }
+      }
+      fprintf(fout, "%s;\n", buf);
+    }
 
 }
 static void
@@ -572,12 +595,28 @@ annotate_for_unaryop_expr(expr_ty e){
     expr_ty operand = e->unaryop.operand;
     unaryop_ty op = e->unaryop.op;
 
-    char* fake = get_unaryop_true_literal(op);
+    char* literal = NULL;
+    if ( is_primary_type(operand->e_type) ) {
+      literal = get_unaryop_true_literal(op);
+    }
+    else {
+      literal = get_unaryop_fake_literal(op);
+    }
     annotate_for_expr(operand);
-    if(fake[0] == '!') {
-        sprintf(e->ann, "!%s", operand->ann);
+    if(literal[0] == '!') {
+        sprintf(e->ann, "! %s", operand->ann);
     }else {
-        sprintf(e->ann, "(%s)->%s()", operand->ann, fake);
+        if ( is_primary_type(operand->e_type) ) {
+          if ( operand->kind == BinOp_kind ) {
+            sprintf(e->ann, "%s (%s)", literal, operand->ann);
+          }
+          else {
+            sprintf(e->ann, "%s %s", literal, operand->ann);
+          }
+        }
+        else {
+          sprintf(e->ann, "(%s)->%s()", operand->ann, literal);
+        }
     }
 }
 static void
@@ -799,33 +838,44 @@ annotate_for_compare_expr(expr_ty e){
     annotate_for_expr(left);
 
     for(i = 0; i < n; i ++ ) {
+      if(i == 0) {
+          prev = left->ann;
+          p = comps[i]->ann;
+      }else {
+          prev = comps[i-1]->ann;
+          p = comps[i]->ann;
+      }
+
+      annotate_for_expr(comps[i]);
+      char tmp[128];
+      
+      if ( compare_in_exception_list(left, comps[i], ops[i] ) ) {
+        op = get_cmpop_true_literal(ops[i]);
+        sprintf(tmp, "%s %s %s", prev, op, p);
+      }
+      else {
         op = get_cmpop_fake_literal(ops[i]);
-        annotate_for_expr(comps[i]);
-        if(i == 0) {
-            prev = left->ann;
-            p = comps[i]->ann;
-        }else {
-            prev = comps[i-1]->ann;
-            p = comps[i]->ann;
-        }
-        char tmp[128];
 
-        if(ops[i] == In) {
-            sprintf(tmp, "(%s) %s (%s)", p, op, prev);
-        }else if(ops[i] == NotIn) {
-            sprintf(tmp, "!(%s) %s (%s)", p, op, prev);
-            sprintf(tmp, "!(%s) %s (%s)", p, op, prev);
-        }else if(ops[i] == Is || ops[i] == IsNot) {
-            sprintf(tmp, "!(%s) %s (%s)", p, op, prev);
+        if ( ops[i] == In ) {
+            sprintf(tmp, "%s->%s(%s)", p, op, prev);
+        }
+        else if(ops[i] == NotIn) {
+            sprintf(tmp, "!%s->%s(%s)", p, op, prev);
         }else
-            sprintf(tmp, "(%s) %s (%s)", prev, op, p);
-        strcat(e->ann, tmp);
+            sprintf(tmp, "%s->%s(%s)", prev, op, p);
 
-        if(i != n-1) {
-            strcat(e->ann, " && ");
-        }
+      }
+
+      strcat(e->ann, tmp);
+
+      if(i != n-1) {
+          strcat(e->ann, " && ");
+      }
     }
 }
+
+
+
 static void
 annotate_for_call_expr(expr_ty e){
     expr_ty func = e->call.func;
