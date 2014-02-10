@@ -85,10 +85,6 @@ type_ty functable_lookup(char* name, type_ty tp);
 
 type_ty assign_type_to_ast(stmt_seq* ss);
 
-void output_symtab(FILE* fout, symtab_ty tp);
-
-char* newTemp();
-char* newIteration();
-
+void output_symtab(symtab_ty tp);
 
 #endif

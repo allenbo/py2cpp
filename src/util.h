@@ -27,4 +27,6 @@ char* search_hashtable(hashtable_ty ht, char*);
 
 char* newTemp();
 
+
+#define TEST_Z(x) do { if (! (x) ) {fprintf(stderr, #x " has to be true\n"); } } while(0)
 #endif

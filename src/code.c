@@ -10,7 +10,7 @@
 #include "operator.h"
 #include "primary.h"
 
-FILE* fout = NULL;
+#include "writer.h"
 
 extern struct type t_unknown;
 extern struct type t_char;
@@ -76,14 +76,19 @@ generate_cpp_code( char* filename, stmt_seq* ss) {
         filename = "test.cpp";
         fprintf(stderr, "Haven't spectify the output file, Set the filename to test.cpp\n");
     }
-
+    writer_set_filename(filename);
+    writer_ready();
+    /*
     if((fout = fopen(filename, "w")) == NULL) {
         fprintf(stderr, "Can't open file -- %s\n", filename);
     }
+    */
 
     gen_cpp_for_ast(ss, get_current_symtab());
-
+    close_writer();
+    /*
     fclose(fout);
+    */
 }
 
 
@@ -91,7 +96,7 @@ void
 gen_cpp_for_ast(stmt_seq* ss, symtab_ty s) {
     /* first we need to output the variables */
     if(NULL != s)
-        output_symtab(fout, s);
+        output_symtab(s);
 
     int i, n = ss->size;
     for(i = 0; i < n; i ++ ) {
@@ -102,10 +107,10 @@ gen_cpp_for_ast(stmt_seq* ss, symtab_ty s) {
 static void gen_cpp_for_stmt(stmt_ty s){
     switch(s->kind) {
         case Break_kind:
-            fprintf(fout, "break;\n");
+            fprintf(writer_get_file(), "break;\n");
             break;
         case Continue_kind:
-            fprintf(fout, "continue;\n");
+            fprintf(writer_get_file(), "continue;\n");
             break;
         case FuncDef_kind:
             return gen_cpp_for_funcdef_stmt(s);
@@ -204,7 +209,7 @@ gen_cpp_for_funcdef_stmt(stmt_ty s){
     }
     for(i = 0; i < n; i ++ ) {
         sprintf(buf, "%s %s(", t->tab[i]->ret->name, def->funcdef.name);
-        fprintf(fout, "%s", buf);
+        write_buffer(buf);
         int j, m = t->tab[i]->n_param;
         arguments_ty args = def->funcdef.args;
         if(from == 1) {
@@ -214,19 +219,19 @@ gen_cpp_for_funcdef_stmt(stmt_ty s){
             args->params[j + from]->args->e_type = t->tab[i]->params[j];
             sprintf(buf, "%s %s", args->params[j + from]->args->e_type->name,
                     args->params[j + from]->args->name.id);
-            fprintf(fout, "%s", buf);
+            write_buffer(buf);
             if(j != m-1) {
                 sprintf(buf, ", ");
-                fprintf(fout, "%s", buf);
+                write_buffer(buf);
             }
         }
-        sprintf(buf, ") {\n");
-        fprintf(fout, "%s", buf);
+        sprintf(buf, ") {");
+        write_bufferln(buf);
         symtab_ty st = t->tab[i]->scope;
         change_symtab(st);
         assign_type_to_ast(def->funcdef.body);
         gen_cpp_for_ast(def->funcdef.body, st);
-        fprintf(fout, "}\n");
+        write_bufferln(buf);
         change_symtab_back();
         (get_context())->inmember = 0;
     }
@@ -241,17 +246,17 @@ gen_cpp_for_classdef_stmt(stmt_ty s){
     stmt_seq* body = s->classdef.body;
 
     type_ty tp = lookup_variable(name);
-    sprintf(buf, "class %s {\n", name);
-    fprintf(fout, "%s", buf);
+    sprintf(buf, "class %s {", name);
+    write_bufferln(buf);
 
-    sprintf(buf, "public:\n");
-    fprintf(fout, "%s", buf);
+    sprintf(buf, "public:");
+    write_bufferln(buf);
 
     change_symtab(tp->scope);
     (get_context())->inclass = 1;
     gen_cpp_for_ast(body, tp->scope);
-    sprintf(buf, "};\n");
-    fprintf(fout, "%s", buf);
+    sprintf(buf, "};");
+    write_bufferln(buf);
     (get_context())->inclass = 0;
     change_symtab_back();
 }
@@ -262,8 +267,8 @@ gen_cpp_for_return_stmt(stmt_ty s){
     annotate_for_expr(value);
 
     char buf[512] = "";
-    sprintf(buf, "return %s;\n", value->ann);
-    fprintf(fout, "%s", buf);
+    sprintf(buf, "return %s;", value->ann);
+    write_bufferln(buf);
 }
 
 static void
@@ -275,13 +280,13 @@ gen_cpp_for_delete_stmt(stmt_ty s){
     for(i = 0; i < n; i ++ ) {
         annotate_for_expr(targets[i]);
         if(targets[i]->kind == Subscript_kind) {
-            sprintf(buf, "%s->__delitem__(%s);\n", targets[i]->sub.value->ann, targets[i]->sub.slices[0]->index.value->ann);
+            sprintf(buf, "%s->__delitem__(%s);", targets[i]->sub.value->ann, targets[i]->sub.slices[0]->index.value->ann);
         }else if(targets[i]->kind == Attribute_kind) {
-            sprintf(buf, "%s->__delattr__(%s);\n", targets[i]->attribute.value->ann, targets[i]->attribute.attr);
+            sprintf(buf, "%s->__delattr__(%s);", targets[i]->attribute.value->ann, targets[i]->attribute.attr);
         }else {
-            sprintf(buf, "%s->__del__();\n", targets[i]->ann);
+            sprintf(buf, "%s->__del__();", targets[i]->ann);
         }
-        fprintf(fout, "%s", buf);
+        write_bufferln(buf);
     }
 }
 
@@ -303,13 +308,12 @@ gen_cpp_for_assign_stmt(stmt_ty s){
             case Tuple_kind:
                 break;
             case Subscript_kind:
-                 sprintf(buf, "%s;\n", targets[i]->ann);
-                 fprintf(fout, "%s", buf);
+                 sprintf(buf, "%s;", targets[i]->ann);
+                 write_bufferln(buf);
                 break;
             default:
-                sprintf(buf, "%s = %s;\n", targets[i]->ann, value->ann);
-                fprintf(fout, "%s", buf);
-
+                sprintf(buf, "%s = %s;", targets[i]->ann, value->ann);
+                 write_bufferln(buf);
         }
     }
     return;
@@ -326,8 +330,8 @@ gen_cpp_for_augassign_stmt(stmt_ty s){
     char* lop = get_augop_fake_literal(op);
 
     char buf[512] = "";
-    sprintf(buf, "%s->%s(%s);\n", target->ann, lop, value->ann);
-    fprintf(fout, "%s", buf);
+    sprintf(buf, "%s->%s(%s);", target->ann, lop, value->ann);
+    write_bufferln(buf);
 }
 
 static void
@@ -352,8 +356,8 @@ gen_cpp_for_print_stmt(stmt_ty s){
         if(i != n-1)
             strcat(buf, ", ");
     }
-    strcat(buf, ");\n");
-    fprintf(fout, "%s", buf);
+    strcat(buf, ");");
+    write_bufferln(buf);
 }
 
 static void
@@ -372,46 +376,46 @@ gen_cpp_for_for_stmt(stmt_ty s){
     char* ef;
     if(orelse != NULL) {
         ef = newTemp();
-        sprintf(buf, "int %s = NOTINT;\n", ef);
-        fprintf(fout, "%s", buf);
+        sprintf(buf, "int %s = NOTINT;", ef);
+        write_bufferln(buf);
     }
     if(iter->kind != Name_kind) {
         char* tmp = newTemp();
-        sprintf(buf, "%s %s = %s;\n", iter->e_type->name, tmp, iter->ann);
-        fprintf(fout, "%s", buf);
+        sprintf(buf, "%s %s = %s;", iter->e_type->name, tmp, iter->ann);
+        write_bufferln(buf);
         strcpy(iter->ann, tmp);
     }
-    sprintf(buf, "for(; %s->has_next(); ) {\n", iter->ann);
-    fprintf(fout, "%s", buf);
+    sprintf(buf, "for(; %s->has_next(); ) {", iter->ann);
+        write_bufferln(buf);
 
     if(orelse != NULL) {
-        sprintf(buf, "%s = INT\n", ef);
-        fprintf(fout, "%s", buf);
+        sprintf(buf, "%s = INT", ef);
+        write_bufferln(buf);
     }
 
     /* just deal with the case when target is not a tuple */
-    sprintf(buf, "%s %s = %s->next();\n",
+    sprintf(buf, "%s %s = %s->next();",
             target->e_type->name, target->ann, iter->ann);
-    fprintf(fout, "%s", buf);
+        write_bufferln(buf);
 
     gen_cpp_for_ast(body, NULL);
 
     if(NULL != orelse ) {
-        sprintf(buf, "%s = NOTINT\n", ef);
-        fprintf(fout, "%s", buf);
+        sprintf(buf, "%s = NOTINT", ef);
+        write_bufferln(buf);
     }
 
-    sprintf(buf, "}\n");
-    fprintf(fout, "%s", buf);
+    sprintf(buf, "}");
+        write_bufferln(buf);
 
     if(orelse != NULL){
-        sprintf(buf, "if( %s == NOTINT) {\n", ef);
-        fprintf(fout, "%s", buf);
+        sprintf(buf, "if( %s == NOTINT) {", ef);
+        write_bufferln(buf);
 
         gen_cpp_for_ast(orelse, NULL);
 
-        sprintf(buf, "}\n");
-        fprintf(fout, "%s", buf);
+        sprintf(buf, "}");
+        write_bufferln(buf);
     }
 }
 
@@ -427,35 +431,35 @@ gen_cpp_for_while_stmt(stmt_ty s){
     char buf[512] = "";
     if(orelse != NULL) {
         ef = newTemp();
-        sprintf(buf, "int %s = NOTINT;\n", ef);
-        fprintf(fout, "%s", buf);
+        sprintf(buf, "int %s = NOTINT;", ef);
+        write_bufferln(buf);
     }
 
-    sprintf(buf, "while( %s ) {\n", test->ann);
-    fprintf(fout, "%s", buf);
+    sprintf(buf, "while( %s ) {", test->ann);
+    write_bufferln(buf);
 
     if(orelse != NULL) {
-        sprintf(buf, "%s = INT\n", ef);
-        fprintf(fout, "%s", buf);
+        sprintf(buf, "%s = INT", ef);
+        write_bufferln(buf);
     }
     gen_cpp_for_ast(body, NULL);
 
     if(NULL != orelse ) {
-        sprintf(buf, "%s = NOTINT\n", ef);
-        fprintf(fout, "%s", buf);
+        sprintf(buf, "%s = NOTINT", ef);
+        write_bufferln(buf);
     }
 
-    sprintf(buf, "}\n");
-    fprintf(fout, "%s", buf);
+    sprintf(buf, "}");
+    write_bufferln(buf);
 
     if(orelse != NULL){
-        sprintf(buf, "if( %s == NOTINT) {\n", ef);
-        fprintf(fout, "%s", buf);
+        sprintf(buf, "if( %s == NOTINT) {", ef);
+        write_bufferln(buf);
 
         gen_cpp_for_ast(orelse, NULL);
 
-        sprintf(buf, "}\n");
-        fprintf(fout, "%s", buf);
+        sprintf(buf, "}");
+        write_bufferln(buf);
     }
 }
 
@@ -467,20 +471,17 @@ gen_cpp_for_if_stmt(stmt_ty s){
 
     annotate_for_expr(test);
     char buf[512] = "";
-    sprintf(buf, "if(%s) {\n", test->ann);
-    fprintf(fout, "%s", buf);
+    sprintf(buf, "if(%s) {", test->ann);
+    write_bufferln(buf);
 
     gen_cpp_for_ast(body, NULL);
-    sprintf(buf, "}\n");
-    fprintf(fout, "%s", buf);
+    write_bufferln("}");
 
     if(orelse != NULL) {
-        sprintf(buf, "else {\n");
-        fprintf(fout, "%s", buf);
+        write_bufferln("else {");
 
         gen_cpp_for_ast(orelse, NULL);
-        sprintf(buf, "}\n");
-        fprintf(fout, "%s", buf);
+        write_bufferln("}");
     }
 }
 
@@ -509,8 +510,8 @@ static void
 gen_cpp_for_expr_stmt(stmt_ty s){
     annotate_for_expr(s->exprstmt.value);
     char buf[512] = "";
-    sprintf(buf, "%s;\n", s->exprstmt.value->ann);
-    fprintf(fout, "%s", buf);
+    sprintf(buf, "%s;", s->exprstmt.value->ann);
+    write_bufferln(buf);
 }
 
 static void
@@ -575,8 +576,8 @@ annotate_for_boolop_expr(expr_ty e){
       char* tmp = newTemp();
       strcpy(e->ann, tmp);
 
-      sprintf(buf, "%s %s;\n", values[0]->e_type->name, tmp);
-      fprintf(fout, "%s", buf);
+      sprintf(buf, "%s %s;", values[0]->e_type->name, tmp);
+      write_bufferln(buf);
 
       buf[0] = '\0';
       for(i = 0; i < n; i ++ ) {
@@ -586,7 +587,7 @@ annotate_for_boolop_expr(expr_ty e){
               sprintf(buf + strlen(buf) , " %s ", get_boolop_literal(op));
           }
       }
-      fprintf(fout, "%s;\n", buf);
+      write_bufferln(buf);
     }
 
 }
@@ -644,20 +645,20 @@ annotate_for_listcomp_expr(expr_ty e){
     type_ty tp = lookup_variable(scope_name);
 
     char line[512] = "";
-    sprintf(line, "{\n");
-    fprintf(fout, "%s", line);
+    new_line();
+    write_bufferln("{");
+    incr_indent();
 
 
-    output_symtab(fout, tp->scope);
+    output_symtab(tp->scope);
 
     expr_ty elt = e->listcomp.elt;
-    sprintf(line, "%s = List<%s>(0);\n", ann, elt->e_type->name);
-    fprintf(fout, "%s", line);
+    sprintf(line, "%s = make_shared< pylist< %s > >(0);", ann, elt->e_type->name);
+    write_bufferln(line);
     int i, n = e->listcomp.n_com;
     comprehension_ty* coms = e->listcomp.generators;
 
     annotate_for_expr(elt);
-
 
     for(i = 0; i < n; i ++ ) {
         comprehension_ty com = coms[i];
@@ -670,8 +671,8 @@ annotate_for_listcomp_expr(expr_ty e){
         annotate_for_expr(iter);
         if(iter->kind != Name_kind) {
             char* tmp = newTemp();
-            sprintf(line, "%s %s = %s;\n", iter->e_type->name, tmp, iter->ann);
-            fprintf(fout, "%s", line);
+            sprintf(line, "%s %s = %s;", iter->e_type->name, tmp, iter->ann);
+            write_buffer(line);
             strcpy(iter->ann, tmp);
         }
         for(j = 0; j < m; j ++) {
@@ -686,25 +687,30 @@ annotate_for_listcomp_expr(expr_ty e){
         int j, m = com->n_test;
         expr_ty* tests = com->tests;
 
-        sprintf(line, "for(; %s->has_next();) {\n", iter->ann);
-        fprintf(fout, "%s", line);
+        new_line();
+        sprintf(line, "for(; %s->has_next();) {", iter->ann);
+        write_bufferln(line);
+        incr_indent();
 
-        sprintf(line, "%s = %s->next();\n",  target->ann, iter->ann);
-        fprintf(fout, "%s", line);
+        sprintf(line, "%s = %s->next();",  target->ann, iter->ann);
+        write_bufferln(line);
 
         for(j = 0; j < m; j++ ) {
-            sprintf(line, "if (%s)\n", tests[j]->ann);
-            fprintf(fout, "%s", line);
+            sprintf(line, "if (%s)", tests[j]->ann);
+            write_bufferln(line);
+            incr_indent();
         }
     }
 
-    sprintf(line, "%s->add(%s);\n", ann, elt->ann);
-    fprintf(fout, "%s", line);
+    sprintf(line, "%s->add(%s);", ann, elt->ann);
+    write_bufferln(line);
+    decr_indent();
     for(i = 0; i < n ;i ++ ) {
-        sprintf(line, "}\n");fprintf(fout, "%s", line);
+        decr_indent();
+        write_bufferln("}");
     }
-
-    sprintf(line, "}\n");fprintf(fout, "%s", line);
+    decr_indent();
+    write_bufferln("}");
 
 }
 static void
@@ -756,15 +762,14 @@ annotate_for_setcomp_expr(expr_ty e){
     type_ty tp = lookup_variable(scope_name);
 
     char line[512] = "";
-    sprintf(line, "{\n");
-    fprintf(fout, "%s", line);
+    write_bufferln("{");
 
 
-    output_symtab(fout, tp->scope);
+    output_symtab(tp->scope);
 
     expr_ty elt = e->setcomp.elt;
-    sprintf(line, "%s = Set<%s>(0);\n", ann, elt->e_type->name);
-    fprintf(fout, "%s", line);
+    sprintf(line, "%s = make_shared< pyset< %s > >(0);\n", ann, elt->e_type->name);
+    write_bufferln(line);
     int i, n = e->setcomp.n_com;
     comprehension_ty* coms = e->setcomp.generators;
 
@@ -783,7 +788,7 @@ annotate_for_setcomp_expr(expr_ty e){
         if(iter->kind != Name_kind) {
             char* tmp = newTemp();
             sprintf(line, "%s %s = %s;\n", iter->e_type->name, tmp, iter->ann);
-            fprintf(fout, "%s", line);
+            write_bufferln(line);
             strcpy(iter->ann, tmp);
         }
         for(j = 0; j < m; j ++) {
@@ -799,24 +804,24 @@ annotate_for_setcomp_expr(expr_ty e){
         expr_ty* tests = com->tests;
 
         sprintf(line, "for(; %s->has_next();) {\n", iter->ann);
-        fprintf(fout, "%s", line);
+        write_bufferln(line);
 
         sprintf(line, "%s = %s->next();\n",  target->ann, iter->ann);
-        fprintf(fout, "%s", line);
+        write_bufferln(line);
 
         for(j = 0; j < m; j++ ) {
             sprintf(line, "if (%s)\n", tests[j]->ann);
-            fprintf(fout, "%s", line);
+            write_bufferln(line);
         }
     }
 
     sprintf(line, "%s->append(%s);\n", ann, elt->ann);
-    fprintf(fout, "%s", line);
+    write_bufferln(line);
     for(i = 0; i < n ;i ++ ) {
-        sprintf(line, "}\n");fprintf(fout, "%s", line);
+      write_bufferln("}");
     }
 
-    sprintf(line, "}\n");fprintf(fout, "%s", line);
+    write_bufferln("}");
 
 }
 static void
