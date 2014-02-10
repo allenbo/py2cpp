@@ -73,7 +73,7 @@ static void push_type_to_arguments(arguments_ty args,
 type_ty
 create_list_type(int n, type_ty t) {
     type_ty tp = (type_ty) malloc ( sizeof(struct type) );
-    sprintf(tp->name, "PLIST(%s)", t->name);
+    sprintf(tp->name, "shared_ptr< pylist< %s > >", t->name);
     tp->kind = LIST_KIND;
     tp->base = t;
     return tp;
@@ -83,7 +83,7 @@ create_list_type(int n, type_ty t) {
 type_ty
 create_set_type(int n, type_ty t) {
     type_ty tp = (type_ty) malloc (sizeof(struct type));
-    sprintf(tp->name, "PSET(%s)", t->name);
+    sprintf(tp->name, "shared_ptr< pyset< %s > >", t->name);
     tp->kind = SET_KIND;
     tp->base = t;
     return tp;
@@ -103,7 +103,7 @@ create_generator_type(type_ty t) {
 type_ty
 create_tuple_type(int n) {
     type_ty tp = (type_ty) malloc ( sizeof(struct type) );
-    sprintf(tp->name, "PTUPLE");
+    sprintf(tp->name, "shared_ptr< pyset >");
     tp->kind = TUPLE_KIND;
     tp->n_elt = n;
 
@@ -122,7 +122,7 @@ tuple_set_type(type_ty tuple, int i, type_ty t) {
 type_ty
 create_dict_type(int n, type_ty kbase, type_ty vbase) {
     type_ty tp = (type_ty) malloc (sizeof(struct type));
-    sprintf(tp->name, "PDICT(%s, %s)", kbase->name, vbase->name);
+    sprintf(tp->name, "shared_ptr< pydict< %s, %s > >", kbase->name, vbase->name);
     tp->kind = DICT_KIND;
     tp->kbase = kbase;
     tp->vbase = vbase;

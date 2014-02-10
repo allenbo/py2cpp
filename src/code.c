@@ -46,23 +46,23 @@ static void annotate_for_boolop_expr(expr_ty e);
 static void annotate_for_unaryop_expr(expr_ty e);
 static void annotate_for_lambda_expr(expr_ty e); // waiting
 static void annotate_for_ifexp_expr(expr_ty e);
-static void annotate_for_listcomp_expr(expr_ty e);
-static void annotate_for_dict_expr(expr_ty e);
-static void annotate_for_set_expr(expr_ty e);
-static void annotate_for_dictcomp_expr(expr_ty e);
-static void annotate_for_setcomp_expr(expr_ty e);
-static void annotate_for_generator_expr(expr_ty e);
-static void annotate_for_yield_expr(expr_ty e);
-static void annotate_for_compare_expr(expr_ty e);
-static void annotate_for_call_expr(expr_ty e);
+static void annotate_for_listcomp_expr(expr_ty e); // waiting
+static void annotate_for_dictcomp_expr(expr_ty e); //waiting
+static void annotate_for_setcomp_expr(expr_ty e);  //waiting
+static void annotate_for_generator_expr(expr_ty e); //waiting
+static void annotate_for_yield_expr(expr_ty e); //waiting
+static void annotate_for_compare_expr(expr_ty e); 
+static void annotate_for_call_expr(expr_ty e); // waiting
 static void annotate_for_repr_expr(expr_ty e);
 static void annotate_for_num_expr(expr_ty e);
 static void annotate_for_str_expr(expr_ty e);
 static void annotate_for_attribute_expr(expr_ty e);
-static void annotate_for_subscript_expr(expr_ty e);
+static void annotate_for_subscript_expr(expr_ty e); // waiting
 static void annotate_for_name_expr(expr_ty e);
 static void annotate_for_list_expr(expr_ty e);
 static void annotate_for_tuple_expr(expr_ty e);
+static void annotate_for_dict_expr(expr_ty e);
+static void annotate_for_set_expr(expr_ty e);
 
 
 void
@@ -713,7 +713,7 @@ annotate_for_dict_expr(expr_ty e){
     expr_ty* keys = e->dict.keys;
     expr_ty* values = e->dict.values;
 
-    sprintf(e->ann, "Dict<%s, %s>( %d, ",
+    sprintf(e->ann, "make_shared< pydict<%s, %s > >( %d, ",
             e->e_type->kbase->name,e->e_type->vbase->name, n);
     for(i = 0; i < n; i ++ ){
         annotate_for_expr(values[i]);
@@ -733,7 +733,7 @@ annotate_for_set_expr(expr_ty e){
     int i, n = e->set.n_elt;
     expr_ty* elts = e->set.elts;
 
-    sprintf(e->ann, "Set<%s>( %d, ", e->e_type->base->name, n);
+    sprintf(e->ann, "make_shared< pyset< %s > >( %d, ", e->e_type->base->name, n);
     for(i = 0; i < n; i ++ ){
         annotate_for_expr(elts[i]);
         strcat(e->ann, elts[i]->ann);
@@ -1008,7 +1008,7 @@ annotate_for_list_expr(expr_ty e){
     int i, n = e->list.n_elt;
     expr_ty* elts = e->list.elts;
 
-    sprintf(e->ann, "List<%s>( %d, ", e->e_type->base->name, n);
+    sprintf(e->ann, "make_shared< pylist< %s > >( %d, ", e->e_type->base->name, n);
     for(i = 0; i < n; i ++ ){
         annotate_for_expr(elts[i]);
         strcat(e->ann, elts[i]->ann);
@@ -1022,7 +1022,7 @@ annotate_for_tuple_expr(expr_ty e){
     int i, n = e->tuple.n_elt;
     expr_ty * elts = e->tuple.elts;
 
-    sprintf(e->ann, "Tuple( %d, ", n);
+    sprintf(e->ann, "make_shared< pytuple > ( %d, ", n);
     for(i = 0; i < n; i ++ ) {
         annotate_for_expr(elts[i]);
         strcat(e->ann, elts[i]->ann);
