@@ -221,12 +221,10 @@ gen_cpp_for_funcdef_stmt(stmt_ty s){
                     args->params[j + from]->args->name.id);
             write_buffer(buf);
             if(j != m-1) {
-                sprintf(buf, ", ");
-                write_buffer(buf);
+                write_buffer(", ");
             }
         }
-        sprintf(buf, ") {");
-        write_bufferln(buf);
+        smart_write_buffer(") {");
         symtab_ty st = t->tab[i]->scope;
         change_symtab(st);
         assign_type_to_ast(def->funcdef.body);
@@ -247,16 +245,14 @@ gen_cpp_for_classdef_stmt(stmt_ty s){
 
     type_ty tp = lookup_variable(name);
     sprintf(buf, "class %s {", name);
-    write_bufferln(buf);
+    smart_write_buffer(buf);
 
-    sprintf(buf, "public:");
-    write_bufferln(buf);
+    write_bufferln("public:");
 
     change_symtab(tp->scope);
     (get_context())->inclass = 1;
     gen_cpp_for_ast(body, tp->scope);
-    sprintf(buf, "};");
-    write_bufferln(buf);
+    smart_write_buffer("};");
     (get_context())->inclass = 0;
     change_symtab_back();
 }
@@ -356,8 +352,7 @@ gen_cpp_for_print_stmt(stmt_ty s){
         if(i != n-1)
             strcat(buf, ", ");
     }
-    strcat(buf, ");");
-    write_bufferln(buf);
+    write_bufferln(");");
 }
 
 static void
@@ -386,7 +381,7 @@ gen_cpp_for_for_stmt(stmt_ty s){
         strcpy(iter->ann, tmp);
     }
     sprintf(buf, "for(; %s->has_next(); ) {", iter->ann);
-        write_bufferln(buf);
+    write_bufferln(buf);
 
     if(orelse != NULL) {
         sprintf(buf, "%s = INT", ef);
@@ -396,7 +391,7 @@ gen_cpp_for_for_stmt(stmt_ty s){
     /* just deal with the case when target is not a tuple */
     sprintf(buf, "%s %s = %s->next();",
             target->e_type->name, target->ann, iter->ann);
-        write_bufferln(buf);
+    write_bufferln(buf);
 
     gen_cpp_for_ast(body, NULL);
 
@@ -405,8 +400,7 @@ gen_cpp_for_for_stmt(stmt_ty s){
         write_bufferln(buf);
     }
 
-    sprintf(buf, "}");
-        write_bufferln(buf);
+    smart_write_buffer("}");
 
     if(orelse != NULL){
         sprintf(buf, "if( %s == NOTINT) {", ef);
@@ -414,8 +408,7 @@ gen_cpp_for_for_stmt(stmt_ty s){
 
         gen_cpp_for_ast(orelse, NULL);
 
-        sprintf(buf, "}");
-        write_bufferln(buf);
+        smart_write_buffer("}");
     }
 }
 
@@ -436,11 +429,11 @@ gen_cpp_for_while_stmt(stmt_ty s){
     }
 
     sprintf(buf, "while( %s ) {", test->ann);
-    write_bufferln(buf);
+    smart_write_buffer(buf);
 
     if(orelse != NULL) {
         sprintf(buf, "%s = INT", ef);
-        write_bufferln(buf);
+        write_buffer(buf);
     }
     gen_cpp_for_ast(body, NULL);
 
@@ -449,8 +442,7 @@ gen_cpp_for_while_stmt(stmt_ty s){
         write_bufferln(buf);
     }
 
-    sprintf(buf, "}");
-    write_bufferln(buf);
+    smart_write_buffer("}");
 
     if(orelse != NULL){
         sprintf(buf, "if( %s == NOTINT) {", ef);
@@ -458,8 +450,7 @@ gen_cpp_for_while_stmt(stmt_ty s){
 
         gen_cpp_for_ast(orelse, NULL);
 
-        sprintf(buf, "}");
-        write_bufferln(buf);
+        smart_write_buffer("}");
     }
 }
 
@@ -472,16 +463,16 @@ gen_cpp_for_if_stmt(stmt_ty s){
     annotate_for_expr(test);
     char buf[512] = "";
     sprintf(buf, "if(%s) {", test->ann);
-    write_bufferln(buf);
+    smart_write_buffer(buf);
 
     gen_cpp_for_ast(body, NULL);
-    write_bufferln("}");
+    smart_write_buffer("}");
 
     if(orelse != NULL) {
-        write_bufferln("else {");
+        smart_write_buffer("else {");
 
         gen_cpp_for_ast(orelse, NULL);
-        write_bufferln("}");
+        smart_write_buffer("}");
     }
 }
 
@@ -646,7 +637,7 @@ annotate_for_listcomp_expr(expr_ty e){
 
     char line[512] = "";
     new_line();
-    write_bufferln("{");
+    smart_write_buffer("{");
     incr_indent();
 
 
@@ -689,8 +680,7 @@ annotate_for_listcomp_expr(expr_ty e){
 
         new_line();
         sprintf(line, "for(; %s->has_next();) {", iter->ann);
-        write_bufferln(line);
-        incr_indent();
+        smart_write_buffer(line);
 
         sprintf(line, "%s = %s->next();",  target->ann, iter->ann);
         write_bufferln(line);
@@ -705,12 +695,9 @@ annotate_for_listcomp_expr(expr_ty e){
     sprintf(line, "%s->add(%s);", ann, elt->ann);
     write_bufferln(line);
     decr_indent();
-    for(i = 0; i < n ;i ++ ) {
-        decr_indent();
-        write_bufferln("}");
+    for(i = 0; i < n + 1;i ++ ) {
+        smart_write_buffer("}");
     }
-    decr_indent();
-    write_bufferln("}");
 
 }
 static void
@@ -762,15 +749,14 @@ annotate_for_setcomp_expr(expr_ty e){
     type_ty tp = lookup_variable(scope_name);
 
     char line[512] = "";
-    write_bufferln("{");
+    smart_write_buffer("{");
 
 
     output_symtab(tp->scope);
 
     expr_ty elt = e->setcomp.elt;
     sprintf(line, "%s = make_shared< pyset< %s > >(0);\n", ann, elt->e_type->name);
-    write_bufferln(line);
-    int i, n = e->setcomp.n_com;
+    write_bufferln(line); int i, n = e->setcomp.n_com;
     comprehension_ty* coms = e->setcomp.generators;
 
     annotate_for_expr(elt);
@@ -787,7 +773,7 @@ annotate_for_setcomp_expr(expr_ty e){
         annotate_for_expr(iter);
         if(iter->kind != Name_kind) {
             char* tmp = newTemp();
-            sprintf(line, "%s %s = %s;\n", iter->e_type->name, tmp, iter->ann);
+            sprintf(line, "%s %s = %s;", iter->e_type->name, tmp, iter->ann);
             write_bufferln(line);
             strcpy(iter->ann, tmp);
         }
@@ -803,25 +789,25 @@ annotate_for_setcomp_expr(expr_ty e){
         int j, m = com->n_test;
         expr_ty* tests = com->tests;
 
-        sprintf(line, "for(; %s->has_next();) {\n", iter->ann);
-        write_bufferln(line);
+        sprintf(line, "for(; %s->has_next();) {", iter->ann);
+        smart_write_buffer(line);
 
-        sprintf(line, "%s = %s->next();\n",  target->ann, iter->ann);
+        sprintf(line, "%s = %s->next();",  target->ann, iter->ann);
         write_bufferln(line);
 
         for(j = 0; j < m; j++ ) {
-            sprintf(line, "if (%s)\n", tests[j]->ann);
+            sprintf(line, "if (%s)", tests[j]->ann);
             write_bufferln(line);
+            incr_indent();
         }
     }
 
-    sprintf(line, "%s->append(%s);\n", ann, elt->ann);
+    sprintf(line, "%s->append(%s);", ann, elt->ann);
     write_bufferln(line);
-    for(i = 0; i < n ;i ++ ) {
-      write_bufferln("}");
+    decr_indent();
+    for(i = 0; i < n + 1 ;i ++ ) {
+      smart_write_buffer("}");
     }
-
-    write_bufferln("}");
 
 }
 static void

@@ -27,4 +27,6 @@ void decr_indent();
 void new_line();
 void write_buffer(const char* buffer);
 void write_bufferln(const char* buffer);
+
+void smart_write_buffer(const char* buffer);
 #endif
