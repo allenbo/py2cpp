@@ -14,20 +14,24 @@ class StopIteration: public exception {
 };
 
 
-#define YIELD(x) switch(first) { \
+#define BEGIN_YIELD switch(first) { \
   case 0: \
       first =1;\
-      return (x); \
-  case 1:
-#define END_YIELD first = 0; \
+
+#define END_YIELD  first = 0; \
     break;\
     }
+
+#define YIELD(a) return (a); \
+  case 1:
 
 int yield_list(int x) {
   static int a = 0;
   static int first = 0;
 
   while(a < x) {
+    BEGIN_YIELD
+    printf("inside function %d\n", a);
     YIELD(a)
     a += 1;
     END_YIELD
@@ -70,28 +74,30 @@ class List {
     int at;
 };
 
-template<class IterType, class BaseType> // IterType should be a smart pointer
+int func(shared_ptr< List<int> > iter) {
+  for(; iter->has_next(); ){
+    return iter->next() + 10;
+  }
+  throw StopIteration();
+}
+
+
+template< class IterType, class BaseType> // IterType should be a smart pointer
 class Generator {
   public:
-    Generator(IterType iter) {
+    Generator(function< BaseType (IterType)> func, IterType iter) {
       this->iter = iter;
+      this->func = func;
     }
 
     BaseType next() {
-      for(; iter->has_next(); ) {
-        return func(iter->next());
-      }
-      throw StopIteration();
-    }
-
-    inline BaseType func(BaseType item) {
-      return item + 10;
+      return this->func(this->iter);
     }
 
   private:
-    IterType  iter;
+    IterType iter;
+    function<BaseType (IterType)> func;
 };
-
 
 
 template<class FuncType, class BaseType, class ArgType>
@@ -110,6 +116,8 @@ class GeneratorFromFunction {
     FuncType func;
     ArgType arg;
 };
+
+
 int main() {
   auto list = make_shared< List<int> >(3, 10, 20, 30);
 
@@ -117,14 +125,26 @@ int main() {
   for(; list->has_next(); )
     cout << list->next() << endl;
   */
-/*
-  auto x = make_shared< Generator< shared_ptr< List<int> >,  int > >(list);
+
+  /*
+  auto x = make_shared< Generator< shared_ptr< List<int> >,  int > >(func, list);
   for(; 1; ) {
     cout << x->next() << endl;
   }
-*/
+  */
+
+  /*
   auto x = make_shared< GeneratorFromFunction<function< int (int) >, int, int> > (yield_list, 10);
   for(; 1; ) {
     cout << x->next() << endl;
   }
+  */
+
+
+  cout << yield_list(10) << endl;
+  cout << yield_list(10) << endl;
+  cout << yield_list(10) << endl;
+  cout << yield_list(10) << endl;
+  cout << yield_list(10) << endl;
+  cout << yield_list(10) << endl;
 }
