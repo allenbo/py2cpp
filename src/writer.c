@@ -89,11 +89,11 @@ void smart_write_buffer(const char* buffer ) {
   for(i = 0; WHITESPACE(buffer[i]); i ++)
     ;
 
-  else if (buffer[i] == '}') {
+  if (buffer[i] == '}') {
     decr_indent();
     write_bufferln(buffer);
-    return 0;
+    return;
   }
 
-  writer_buffer(buffer);
+  write_buffer(buffer);
 }

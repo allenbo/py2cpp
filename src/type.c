@@ -103,7 +103,7 @@ create_generator_type(type_ty t) {
 type_ty
 create_tuple_type(int n) {
     type_ty tp = (type_ty) malloc ( sizeof(struct type) );
-    sprintf(tp->name, "shared_ptr< pyset >");
+    sprintf(tp->name, "shared_ptr< pytuple >");
     tp->kind = TUPLE_KIND;
     tp->n_elt = n;
 
@@ -1009,7 +1009,7 @@ assign_type_to_comprehension(comprehension_ty com) {
 
     if(iter->e_type->kind == DICT_KIND)
         target->e_type = iter->e_type->kbase;
-    else if( iter->e_type->kind == LIST_KIND)
+    else if( iter->e_type->kind == LIST_KIND || iter->e_type->kind == SET_KIND)
         target->e_type = iter->e_type->base;
     else if( iter->e_type->kind == TUPLE_KIND)
         /* for tuple kind, I use the first element's type

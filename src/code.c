@@ -46,9 +46,9 @@ static void annotate_for_boolop_expr(expr_ty e);
 static void annotate_for_unaryop_expr(expr_ty e);
 static void annotate_for_lambda_expr(expr_ty e); // waiting
 static void annotate_for_ifexp_expr(expr_ty e);
-static void annotate_for_listcomp_expr(expr_ty e); // waiting
-static void annotate_for_dictcomp_expr(expr_ty e); //waiting
-static void annotate_for_setcomp_expr(expr_ty e);  //waiting
+static void annotate_for_listcomp_expr(expr_ty e);
+static void annotate_for_dictcomp_expr(expr_ty e);
+static void annotate_for_setcomp_expr(expr_ty e);
 static void annotate_for_generator_expr(expr_ty e); //waiting
 static void annotate_for_yield_expr(expr_ty e); //waiting
 static void annotate_for_compare_expr(expr_ty e); 
@@ -57,7 +57,7 @@ static void annotate_for_repr_expr(expr_ty e);
 static void annotate_for_num_expr(expr_ty e);
 static void annotate_for_str_expr(expr_ty e);
 static void annotate_for_attribute_expr(expr_ty e);
-static void annotate_for_subscript_expr(expr_ty e); // waiting
+static void annotate_for_subscript_expr(expr_ty e);
 static void annotate_for_name_expr(expr_ty e);
 static void annotate_for_list_expr(expr_ty e);
 static void annotate_for_tuple_expr(expr_ty e);
@@ -352,7 +352,8 @@ gen_cpp_for_print_stmt(stmt_ty s){
         if(i != n-1)
             strcat(buf, ", ");
     }
-    write_bufferln(");");
+    strcat(buf, ");");
+    write_bufferln(buf);
 }
 
 static void
@@ -638,7 +639,6 @@ annotate_for_listcomp_expr(expr_ty e){
     char line[512] = "";
     new_line();
     smart_write_buffer("{");
-    incr_indent();
 
 
     output_symtab(tp->scope);
@@ -694,10 +694,14 @@ annotate_for_listcomp_expr(expr_ty e){
 
     sprintf(line, "%s->add(%s);", ann, elt->ann);
     write_bufferln(line);
-    decr_indent();
-    for(i = 0; i < n + 1;i ++ ) {
-        smart_write_buffer("}");
+    for(i = 0;i < n; i ++ ) {
+      int j, m = coms[i]->n_test;
+      for(j = 0; j < m ; j ++ ) {
+        decr_indent();
+      }
+      smart_write_buffer("}");
     }
+    smart_write_buffer("}");
 
 }
 static void
@@ -737,6 +741,95 @@ annotate_for_set_expr(expr_ty e){
 }
 static void
 annotate_for_dictcomp_expr(expr_ty e){
+  char scope_name[128] = "";
+  sprintf(scope_name, "comp_%p", e);
+  char* ann = search_hashtable((get_context())->ht, scope_name);
+  strcpy(e->ann, ann);
+  
+  type_ty tp = lookup_variable(scope_name);
+
+  new_line();
+  smart_write_buffer("{");
+
+  output_symtab(tp->scope);
+
+  expr_ty key = e->dictcomp.key;
+  expr_ty value = e->dictcomp.value;
+
+  char line[512] = "";
+  sprintf(line, "%s = make_shared< pydict< %s, %s > > (0);", ann, key->e_type->name, value->e_type->name);
+  write_bufferln(line);
+
+
+  int i, n = e->dictcomp.n_com;
+  comprehension_ty * coms = e->dictcomp.generators;
+
+  annotate_for_expr(key);
+  annotate_for_expr(value);
+
+  
+  for(i = 0; i< n; i ++ ) {
+    comprehension_ty com = coms[i];
+    expr_ty target = com->target;
+    expr_ty iter = com->iter;
+
+    int j, m = com->n_test;
+
+    expr_ty * tests = com->tests;
+
+    annotate_for_expr(target);
+    annotate_for_expr(iter);
+
+    if ( iter->kind != Name_kind ) {
+      char* tmp = newTemp();
+      sprintf(line, "%s %s = %s;", iter->e_type->name, tmp, iter->ann);
+      write_bufferln(line);
+      strcpy(iter->ann, tmp);
+    }
+
+    for(j = 0; j < m; j ++ ) {
+      annotate_for_expr(tests[j]);
+    }
+  }
+
+  for(i = 0; i < n ; i ++ ) {
+    comprehension_ty com = coms[i];
+    expr_ty target = com->target;
+    expr_ty iter = com->iter;
+    int j , m = com->n_test;
+    expr_ty * tests = com->tests;
+
+    sprintf(line, "for(; %s->has_next(); ) {", iter->ann);
+    smart_write_buffer(line);
+
+    sprintf(line, "%s = %s->next();", target->ann, iter->ann);
+    write_bufferln(line);
+
+    if ( target->e_type->kind == TUPLE_KIND ) {
+      sprintf(line, "%s = %s->first();",target->tuple.elts[0]->name.id, target->ann);
+      write_bufferln(line);
+      sprintf(line, "%s = %s->second();", target->tuple.elts[1]->name.id, target->ann);
+      write_bufferln(line);
+    }
+
+    for(j = 0; j < m; j ++ ) {
+      sprintf(line, "if ( %s )", tests[j]->ann);
+      write_bufferln(line);
+      incr_indent();
+    }
+  }
+
+  sprintf(line, "%s->insert(%s, %s);", ann, key->ann, value->ann);
+  write_bufferln(line);
+
+  for(i = 0; i < n; i ++ ) {
+    int j, m = coms[i]->n_test;
+    for(j = 0; j < m; j ++ ) {
+      decr_indent();
+    }
+    smart_write_buffer("}");
+  }
+  smart_write_buffer("}");
 
 }
 static void
@@ -749,14 +842,15 @@ annotate_for_setcomp_expr(expr_ty e){
     type_ty tp = lookup_variable(scope_name);
 
     char line[512] = "";
+    new_line();
     smart_write_buffer("{");
-
 
     output_symtab(tp->scope);
 
     expr_ty elt = e->setcomp.elt;
-    sprintf(line, "%s = make_shared< pyset< %s > >(0);\n", ann, elt->e_type->name);
-    write_bufferln(line); int i, n = e->setcomp.n_com;
+    sprintf(line, "%s = make_shared< pyset< %s > >(0);", ann, elt->e_type->name);
+    write_bufferln(line);
+    int i, n = e->setcomp.n_com;
     comprehension_ty* coms = e->setcomp.generators;
 
     annotate_for_expr(elt);
@@ -804,10 +898,14 @@ annotate_for_setcomp_expr(expr_ty e){
 
     sprintf(line, "%s->append(%s);", ann, elt->ann);
     write_bufferln(line);
-    decr_indent();
-    for(i = 0; i < n + 1 ;i ++ ) {
+    for (i = 0; i < n ; i ++ ) {
+      int j, m = coms[i]->n_test;
+      for(j = 0;j < m; j ++ ) {
+        decr_indent();
+      }
       smart_write_buffer("}");
     }
+    smart_write_buffer("}");
 
 }
 static void
