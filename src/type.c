@@ -91,11 +91,11 @@ create_set_type(int n, type_ty t) {
 
 
 type_ty
-create_generator_type(type_ty t) {
+create_generator_type(type_ty itertype, type_ty basetype, type_ty baseofitertype) {
     type_ty tp = (type_ty) malloc ( sizeof(struct type) );
-    sprintf(tp->name, "PGENERATOR");
+    sprintf(tp->name, "shared_ptr< pygenerator< %s, %s, %s > >", itertype->name, basetype->name, baseofitertype->name);
     tp->kind = GENERATOR_KIND;
-    tp->base = t;
+    tp->base = basetype;
     return tp;
 }
 
@@ -750,7 +750,7 @@ assign_type_to_generator_expr(expr_ty e){
     sprintf(scope_name, "comp_%p", e);
     type_ty tp = (type_ty) malloc ( sizeof ( struct type) );
     tp->kind = SCOPE_KIND;
-    install_scope_variable(scope_name, tp, SE_SCOPE_KIND);
+    //install_scope_variable(scope_name, tp, SE_SCOPE_KIND);
 
     for(i = 0; i < n; i ++ ) {
         assign_type_to_comprehension(gens[i]);
@@ -758,16 +758,19 @@ assign_type_to_generator_expr(expr_ty e){
 
     /* Now identifier in elt will appear in symbol table */
     assign_type_to_expr(elt);
-    change_symtab_back(); /* change to current table */
+    //change_symtab_back(); /* change to current table */
 
-    e->e_type = create_generator_type(elt->e_type); /* Cannot figure out the number of elements */
+    e->e_type = create_generator_type(gens[0]->iter->e_type, elt->e_type, gens[0]->iter->e_type->base); /* Cannot figure out the number of elements */
 
+    char* compname = newTemp();
+    insert_hashtable((get_context())->ht, scope_name, compname);
+    install_variable(compname, e->e_type, SE_VARIABLE_KIND);
 }
 
 static void
 assign_type_to_yield_expr(expr_ty e){
     assign_type_to_expr(e->yield.value);
-    e->e_type = create_generator_type(e->yield.value->e_type);
+    //e->e_type = create_generator_type(e->yield.value->e_type);
 }
 
 static void
@@ -1019,6 +1022,7 @@ assign_type_to_comprehension(comprehension_ty com) {
         target->e_type = iter->e_type->elts[0];
     else {
         /* Here is for generator and iterable object */
+      target->e_type = iter->e_type->base;
     }
 
     assemble_installation(target, SE_VARIABLE_KIND);

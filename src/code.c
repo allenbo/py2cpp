@@ -910,6 +910,38 @@ annotate_for_setcomp_expr(expr_ty e){
 }
 static void
 annotate_for_generator_expr(expr_ty e){
+  char scope_name[128] = "";
+  sprintf(scope_name, "comp_%p", e);
+
+  char* ann = search_hashtable((get_context())->ht, scope_name);
+  strcpy(e->ann, ann);
+
+  char line[512] = "";
+
+  type_ty tp = lookup_variable(scope_name);
+  expr_ty elt =e->generatorexp.elt;
+  comprehension_ty* coms = e->listcomp.generators;
+  
+  annotate_for_expr(elt);
+
+  int i, n = e->listcomp.n_com;
+  for(i = 0; i < n; i ++ ) {
+    comprehension_ty com = coms[i];
+    expr_ty target = com->target;
+    expr_ty iter = com->iter;
+    annotate_for_expr(target);
+    annotate_for_expr(iter);
+
+    if (iter->kind != Name_kind) {
+      char* tmp = newTemp();
+      sprintf(line, "%s %s = %s;", iter->e_type->name, tmp, iter->ann);
+      write_bufferln(line);
+      strcpy(iter->ann, tmp);
+    }
+  }
+  sprintf(line, "pygenerator< %s, %s, %s>", coms[0]->iter->e_type->name, e->e_type->base->name, coms[0]->iter->e_type->base->name);
+  sprintf(e->ann, "make_shared< %s > ( ([] (%s %s) -> %s { return %s; }) , %s)",  line, coms[0]->target->e_type->name,
+                                                coms[0]->target->ann, e->e_type->base->name, elt->ann, coms[0]->iter->ann);
 }
 static void
 annotate_for_yield_expr(expr_ty e){
