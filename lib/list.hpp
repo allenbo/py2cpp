@@ -5,16 +5,19 @@
 #include <iostream>
 #include <stdarg.h>
 #include <vector>
-#include <exception>
 #include <memory>
 #include <functional>
+
+#include "exception.hpp"
 using namespace std;
+
+
+#include "iter.hpp"
 
 template<class ItemType>
 class List {
   public:
     List(int num_item, ... ) {
-      at = 0;
       if ( num_item == 0 ) {
         return ;
       }
@@ -29,17 +32,42 @@ class List {
     }
 
 
-    bool has_next() {
-      return !(at == content.size());
-    }
+    inline int __len__() const { return content.size(); }
 
-    ItemType next() {
-      return content[at++];
+    inline ItemType __getitem__(int index) const { return content[index]; }
+    inline void __setitem__(int index, ItemType item) { content[index] = item; }
+    
+    class ListIter: public Iter<ItemType> {
+      public:
+        bool has_next() {
+          return !(at == list->content.size());
+        }
+
+        ItemType next() {
+          if (at != list->content.size()) 
+            return list->content[at++];
+          else{
+            throw StopIteration();
+          }
+        }
+
+        ListIter(List<ItemType> *  list)  {
+          this->list = list;
+          at = 0;
+        }
+      private:
+        List<ItemType> * list;
+        int at;
+    };
+
+    shared_ptr< ListIter > __iter__() {
+      return make_shared< ListIter > (this);
     }
 
   private:
     vector<ItemType> content;
-    int at;
 };
+
+
 
 #endif
