@@ -43,15 +43,15 @@ static void gen_cpp_for_expr_stmt(stmt_ty s);
 static void annotate_for_expr(expr_ty e);
 static void annotate_for_binop_expr(expr_ty e);
 static void annotate_for_boolop_expr(expr_ty e);
+static void annotate_for_compare_expr(expr_ty e); 
 static void annotate_for_unaryop_expr(expr_ty e);
-static void annotate_for_lambda_expr(expr_ty e); // waiting
 static void annotate_for_ifexp_expr(expr_ty e);
 static void annotate_for_listcomp_expr(expr_ty e);
 static void annotate_for_dictcomp_expr(expr_ty e);
 static void annotate_for_setcomp_expr(expr_ty e);
 static void annotate_for_generator_expr(expr_ty e); //waiting
 static void annotate_for_yield_expr(expr_ty e); //waiting
-static void annotate_for_compare_expr(expr_ty e); 
+static void annotate_for_lambda_expr(expr_ty e); // waiting
 static void annotate_for_call_expr(expr_ty e); // waiting
 static void annotate_for_repr_expr(expr_ty e);
 static void annotate_for_num_expr(expr_ty e);
