@@ -12,17 +12,17 @@
 using namespace std;
 
 
-#define BEGIN_YIELD switch(first) { \
-  case 0: \
-      first =1;\
+#define BEGIN_YIELD static int flag = 0; \
+                    switch (flag) { \
+                      case 0:
 
-#define END_YIELD  first = 0; \
-    break;\
-    }
+#define YIELD(x) flag = 1; \
+                 return (x);\
+              case 1: \
+                 flag = 0;
 
-#define YIELD(a) return (a); \
-  case 1:
 
+#define END_YIELD }
 
 template< class IterType, class BaseType, class BaseOfIterType> // IterType should be a smart pointer
 class Generator: public Iter<BaseType> , public enable_shared_from_this< Generator<IterType, BaseType, BaseOfIterType> >{
