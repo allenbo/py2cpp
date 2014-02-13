@@ -225,11 +225,17 @@ gen_cpp_for_funcdef_stmt(stmt_ty s){
         strcat(buf, ") {");
         smart_write_buffer(buf);
         symtab_ty st = t->tab[i]->scope;
-        change_symtab(st);
-        assign_type_to_ast(def->funcdef.body);
-        gen_cpp_for_ast(def->funcdef.body, st);
-        smart_write_buffer("}");
-        change_symtab_back();
+        if ( ! t->is_yield ) {
+          change_symtab(st);
+          assign_type_to_ast(def->funcdef.body);
+          gen_cpp_for_ast(def->funcdef.body, st);
+          smart_write_buffer("}");
+          change_symtab_back();
+        }
+        else {
+          gen_cpp_for_ast(def->funcdef.body, st);
+          smart_write_buffer("}");
+        }
         (get_context())->inmember = 0;
     }
 }
@@ -944,6 +950,11 @@ annotate_for_generator_expr(expr_ty e){
 }
 static void
 annotate_for_yield_expr(expr_ty e){
+  annotate_for_expr(e->yield.value);
+  char buf[512] = "";
+
+  sprintf(buf, "YIELD(%s)", e->yield.value->ann);
+  write_bufferln(buf);
 }
 static void
 annotate_for_compare_expr(expr_ty e){
