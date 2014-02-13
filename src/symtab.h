@@ -79,7 +79,7 @@ void change_symtab_back();
 
 int has_constructor();
 
-void functable_insert(char* name, int n, Parameter* args, type_ty tp);
+funcentry_ty functable_insert(char* name, int n, Parameter* args, type_ty tp);
 void functable_insert_ret(char* name, type_ty ret,  type_ty tp);
 type_ty functable_lookup(char* name, type_ty tp);
 

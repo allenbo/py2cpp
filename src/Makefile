@@ -42,7 +42,7 @@ HEADER=errcode.h \
 		writer.h
 
 HEADER += code.h util.h
-CFLAGS=
+CFLAGS= -m32
 
 TARGET=converter
 

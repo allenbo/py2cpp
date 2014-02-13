@@ -73,6 +73,7 @@ static void push_type_to_arguments(arguments_ty args,
 type_ty
 create_list_type(int n, type_ty t) {
     type_ty tp = (type_ty) malloc ( sizeof(struct type) );
+    memset(tp, 0, sizeof(struct type));
     sprintf(tp->name, "shared_ptr< pylist< %s > >", t->name);
     tp->kind = LIST_KIND;
     tp->base = t;
@@ -83,6 +84,7 @@ create_list_type(int n, type_ty t) {
 type_ty
 create_set_type(int n, type_ty t) {
     type_ty tp = (type_ty) malloc (sizeof(struct type));
+    memset(tp, 0, sizeof(struct type));
     sprintf(tp->name, "shared_ptr< pyset< %s > >", t->name);
     tp->kind = SET_KIND;
     tp->base = t;
@@ -93,7 +95,19 @@ create_set_type(int n, type_ty t) {
 type_ty
 create_generator_type(type_ty itertype, type_ty basetype, type_ty baseofitertype) {
     type_ty tp = (type_ty) malloc ( sizeof(struct type) );
+    memset(tp, 0, sizeof(struct type));
     sprintf(tp->name, "shared_ptr< pygenerator< %s, %s, %s > >", itertype->name, basetype->name, baseofitertype->name);
+    tp->kind = GENERATOR_KIND;
+    tp->base = basetype;
+    return tp;
+}
+
+type_ty
+create_generatorfromfunction_type(type_ty basetype, type_ty argtype) {
+    type_ty tp = (type_ty) malloc ( sizeof(struct type) );
+    memset(tp, 0, sizeof(struct type));
+    sprintf(tp->name, "shared_ptr< pygeneratorfromfunction< function<%s (%s)> , %s, %s > >",
+        basetype->name, argtype->name,  basetype->name, argtype->name);
     tp->kind = GENERATOR_KIND;
     tp->base = basetype;
     return tp;
@@ -103,6 +117,7 @@ create_generator_type(type_ty itertype, type_ty basetype, type_ty baseofitertype
 type_ty
 create_tuple_type(int n) {
     type_ty tp = (type_ty) malloc ( sizeof(struct type) );
+    memset(tp, 0, sizeof(struct type));
     sprintf(tp->name, "shared_ptr< pytuple >");
     tp->kind = TUPLE_KIND;
     tp->n_elt = n;
@@ -122,6 +137,7 @@ tuple_set_type(type_ty tuple, int i, type_ty t) {
 type_ty
 create_dict_type(int n, type_ty kbase, type_ty vbase) {
     type_ty tp = (type_ty) malloc (sizeof(struct type));
+    memset(tp, 0, sizeof(struct type));
     sprintf(tp->name, "shared_ptr< pydict< %s, %s > >", kbase->name, vbase->name);
     tp->kind = DICT_KIND;
     tp->kbase = kbase;
@@ -132,9 +148,11 @@ create_dict_type(int n, type_ty kbase, type_ty vbase) {
 type_ty
 create_func_type(stmt_ty s) {
     type_ty tp = (type_ty) malloc (sizeof(struct type));
+    memset(tp, 0, sizeof(struct type));
     strcpy(tp->name, "PFUNC");
     tp->kind = FUNCTION_KIND;
     tp->def = s;
+    tp->ind = 0;
     return tp;
 }
 
@@ -770,7 +788,11 @@ assign_type_to_generator_expr(expr_ty e){
 static void
 assign_type_to_yield_expr(expr_ty e){
     assign_type_to_expr(e->yield.value);
-    //e->e_type = create_generator_type(e->yield.value->e_type);
+    type_ty * params = get_context()->fe->params;
+    e->e_type = create_generatorfromfunction_type(e->yield.value->e_type, params[0]);
+    get_context()->is_yield = 1;
+    get_context()->yield_type = e->e_type;
+ 
 }
 
 static void
@@ -824,7 +846,8 @@ assign_type_to_call_expr(expr_ty e){
     }
     type_ty ret = functable_lookup(name, func->e_type);
     if(NULL == ret) {
-        functable_insert(name, n, args, func->e_type);
+        funcentry_ty fe = functable_insert(name, n, args, func->e_type);
+        get_context()->fe = fe;
         stmt_ty s = func->e_type->def;
 
         /* push the type to arguments and insert them to the table */
@@ -850,6 +873,15 @@ assign_type_to_call_expr(expr_ty e){
 
 
         ret = assign_type_to_ast(func->e_type->def->funcdef.body);
+        
+        if(ret == &t_unknown ) {
+          if ( get_context()->is_yield  == 1) {
+            func->e_type->is_yield = 1;
+            ret = get_context()->yield_type;
+            get_context()->is_yield = 0;
+            get_context()->fe = NULL;
+          }
+        }
         functable_insert_ret(name, ret, func->e_type);
 
         change_symtab_back();

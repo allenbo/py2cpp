@@ -209,7 +209,6 @@ gen_cpp_for_funcdef_stmt(stmt_ty s){
     }
     for(i = 0; i < n; i ++ ) {
         sprintf(buf, "%s %s(", t->tab[i]->ret->name, def->funcdef.name);
-        write_buffer(buf);
         int j, m = t->tab[i]->n_param;
         arguments_ty args = def->funcdef.args;
         if(from == 1) {
@@ -217,19 +216,19 @@ gen_cpp_for_funcdef_stmt(stmt_ty s){
         }
         for(j = 0; j < m; j++ ){
             args->params[j + from]->args->e_type = t->tab[i]->params[j];
-            sprintf(buf, "%s %s", args->params[j + from]->args->e_type->name,
+            sprintf(buf + strlen(buf), "%s %s", args->params[j + from]->args->e_type->name,
                     args->params[j + from]->args->name.id);
-            write_buffer(buf);
             if(j != m-1) {
-                write_buffer(", ");
+              strcat(buf, ", ");
             }
         }
-        smart_write_buffer(") {");
+        strcat(buf, ") {");
+        smart_write_buffer(buf);
         symtab_ty st = t->tab[i]->scope;
         change_symtab(st);
         assign_type_to_ast(def->funcdef.body);
         gen_cpp_for_ast(def->funcdef.body, st);
-        write_bufferln(buf);
+        smart_write_buffer("}");
         change_symtab_back();
         (get_context())->inmember = 0;
     }

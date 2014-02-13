@@ -255,7 +255,7 @@ void change_symtab_back() {
     cur = pop_table();
 }
 
-void
+funcentry_ty
 functable_insert(char* name, int n, Parameter* args, type_ty tp ) {
     type_ty ret = &t_unknown;
     int n_param = n;
@@ -267,7 +267,10 @@ functable_insert(char* name, int n, Parameter* args, type_ty tp ) {
         params[i] = args[i].args->e_type;
     }
 
-    tp->tab[tp->ind++] = create_funcentry(name, n_param, params, ret, tp->scope);
+    funcentry_ty tmp = create_funcentry(name, n_param, params, ret, tp->scope);
+    tp->tab[tp->ind] = tmp;
+    tp->ind ++;
+    return tmp;
 }
 
 void
@@ -323,19 +326,18 @@ output_symtab(symtab_ty st) {
             if((get_context())->inclass != 1) {
                 for(i = 0; i < n; i ++ ) {
                     sprintf(buf, "%s %s(", t->tab[i]->ret->name, def->funcdef.name);
-                    write_buffer(buf);
                     int j, m = t->tab[i]->n_param;
                     arguments_ty args = def->funcdef.args;
                     for(j = 0; j < m; j++ ){
                         args->params[j + from]->args->e_type = t->tab[i]->params[j];
-                        sprintf(buf, "%s %s", args->params[j + from]->args->e_type->name,
+                        sprintf(buf + strlen(buf), "%s %s", args->params[j + from]->args->e_type->name,
                                 args->params[j + from]->args->name.id);
-                        write_buffer(buf);
                         if(j != m-1) {
-                            write_buffer(", ");
+                            strcat(buf, ", ");
                         }
                     }
-                    write_bufferln(");");
+                    strcat(buf, ");");
+                    write_bufferln(buf);
                 }
             }
         }else {

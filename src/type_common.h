@@ -48,6 +48,8 @@ struct  type {
     int ind;
     funcentry_ty tab[128];
     type_ty ctype;  /* the type of the class */
+    
+    int is_yield;
 };
 
 
