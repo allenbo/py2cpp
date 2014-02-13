@@ -96,7 +96,11 @@ void
 gen_cpp_for_ast(stmt_seq* ss, symtab_ty s) {
     /* first we need to output the variables */
     if(NULL != s)
+      if(get_context()->prefix[0] != 0)
+        output_symtab_with_prefix(s, get_context()->prefix);
+      else
         output_symtab(s);
+
 
     int i, n = ss->size;
     for(i = 0; i < n; i ++ ) {
@@ -208,7 +212,12 @@ gen_cpp_for_funcdef_stmt(stmt_ty s){
         (get_context())->inmember = 1;
     }
     for(i = 0; i < n; i ++ ) {
-        sprintf(buf, "%s %s(", t->tab[i]->ret->name, def->funcdef.name);
+        if ( t->is_yield ) {
+          sprintf(buf, "%s %s(", t->tab[i]->ret->base->name, def->funcdef.name);
+        }
+        else {
+          sprintf(buf, "%s %s(", t->tab[i]->ret->name, def->funcdef.name);
+        }
         int j, m = t->tab[i]->n_param;
         arguments_ty args = def->funcdef.args;
         if(from == 1) {
@@ -233,8 +242,10 @@ gen_cpp_for_funcdef_stmt(stmt_ty s){
           change_symtab_back();
         }
         else {
+          strcpy(get_context()->prefix, "stacit");
           gen_cpp_for_ast(def->funcdef.body, st);
           smart_write_buffer("}");
+          get_context()->prefix[0] = 0;
         }
         (get_context())->inmember = 0;
     }

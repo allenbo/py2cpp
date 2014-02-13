@@ -308,6 +308,59 @@ has_constructor() {
 }
 
 
+
+void
+output_symtab_with_prefix(symtab_ty st, const char* prefix) {
+    if(NULL == st) return;
+
+    char buf[128] = "";
+    int i, n = st->st_size;
+    for(i = 0; i < n; i ++ ){
+        symtab_entry_ty se = st->st_symbols[i];
+        if(se->se_kind == SE_PARAMETER_KIND || se->se_kind == SE_SCOPE_KIND ||
+                se->se_kind == SE_CLASS_KIND)
+            continue;
+        else if(se->se_kind == SE_FUNCTION_KIND) {
+            type_ty t = se->se_type;
+            stmt_ty def = t->def;
+            int i, n = t->ind, from = 0;
+            if((get_context())->inclass != 1) {
+                for(i = 0; i < n; i ++ ) {
+                  if ( t->is_yield ) {
+                    sprintf(buf, "%s %s(", t->tab[i]->ret->base->name, def->funcdef.name);
+                  }
+                  else {
+                    sprintf(buf, "%s %s(", t->tab[i]->ret->name, def->funcdef.name);
+                  }
+                    int j, m = t->tab[i]->n_param;
+                    arguments_ty args = def->funcdef.args;
+                    for(j = 0; j < m; j++ ){
+                        args->params[j + from]->args->e_type = t->tab[i]->params[j];
+                        sprintf(buf + strlen(buf), "%s %s", args->params[j + from]->args->e_type->name,
+                                args->params[j + from]->args->name.id);
+                        if(j != m-1) {
+                            strcat(buf, ", ");
+                        }
+                    }
+                    strcat(buf, ");");
+                    write_bufferln(buf);
+                }
+            }
+        }else {
+            if((get_context())->inclass == 1) {
+              write_buffer("static ");
+            }
+            type_ty tp = se->se_type;
+            if (prefix != NULL)
+              sprintf(buf, "%s %s %s;", prefix, tp->name, se->se_name);
+            else 
+              sprintf(buf, "%s %s;", tp->name, se->se_name);
+            write_bufferln(buf);
+        }
+    }
+}
+
+
 void
 output_symtab(symtab_ty st) {
     if(NULL == st) return;
@@ -325,7 +378,12 @@ output_symtab(symtab_ty st) {
             int i, n = t->ind, from = 0;
             if((get_context())->inclass != 1) {
                 for(i = 0; i < n; i ++ ) {
+                  if ( t->is_yield ) {
+                    sprintf(buf, "%s %s(", t->tab[i]->ret->base->name, def->funcdef.name);
+                  }
+                  else {
                     sprintf(buf, "%s %s(", t->tab[i]->ret->name, def->funcdef.name);
+                  }
                     int j, m = t->tab[i]->n_param;
                     arguments_ty args = def->funcdef.args;
                     for(j = 0; j < m; j++ ){

@@ -23,6 +23,8 @@ typedef struct {
     
     funcentry_ty fe;
 
+    char prefix[128];
+
 }context;
 
 typedef context * context_ty;
